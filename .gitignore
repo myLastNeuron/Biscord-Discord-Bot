@@ -1,0 +1,11 @@
+.env
+node_modules/
+data/*.json
+data/*.tmp-*
+data/logs/
+*.log
+.DS_Store
+
+# YouTube cookies for yt-dlp (a login secret — never commit it)
+cookies.txt
+*.cookies.txt

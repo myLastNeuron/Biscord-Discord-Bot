@@ -1,0 +1,64 @@
+========================================
+  BISCORD - Quick Start
+========================================
+
+An all-in-one, self-hosted Discord bot.
+Requirements: Node.js 18.17 or newer  ->  https://nodejs.org  (use the LTS build)
+
+----------------------------------------
+ 1) Get a bot token
+----------------------------------------
+   https://discord.com/developers/applications
+   Create an application, open "Bot", and copy the token.
+   Also copy the Application (Client) ID.
+
+----------------------------------------
+ 2) Install dependencies
+----------------------------------------
+   Nothing to do - the first launch installs them
+   automatically (npm install) and downloads the correct
+   ffmpeg / yt-dlp binaries for your operating system.
+
+   To install ahead of time (optional):
+       npm install
+
+----------------------------------------
+ 3) Configure
+----------------------------------------
+   Windows:
+       copy .env.example .env
+
+   Linux:
+       cp .env.example .env
+
+   Then edit .env and set at least:
+       DISCORD_TOKEN=...
+       CLIENT_ID=...
+
+   Optional: GUILD_ID, stat channels, DATA_DIR, LOG_LEVEL
+   (see the comments inside .env.example).
+
+----------------------------------------
+ 4) Register the slash commands
+----------------------------------------
+       npm run deploy
+
+----------------------------------------
+ 5) Start the bot
+----------------------------------------
+       npm start
+
+   Always start with "npm start": it runs run.js, which
+   self-heals the music binaries and auto-restarts the
+   bot if it ever crashes.
+
+----------------------------------------
+ Notes
+----------------------------------------
+   * Invite the bot with the "applications.commands" scope,
+     otherwise slash commands will not appear on your server.
+   * Runtime data lives in the ./data folder - back it up.
+   * Linux hosts: set YT_DLP_BINARY_PATH / FFMPEG_BIN only if
+     the automatic binary download fails.
+
+Licensed under the Apache License 2.0 - see LICENSE.md
