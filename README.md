@@ -81,6 +81,19 @@ You should see the ASCII banner once the bot connects. Run `/panel` in your serv
 > [!TIP]
 > Always start the bot through `npm start` (which runs `run.js`). Running `index.js` directly skips the supervisor, the auto-restart, and the binary self-heal.
 
+> [!IMPORTANT]
+> **Music needs a `cookies.txt` file.** YouTube blocks bot traffic with *"Sign in to confirm you're not a bot"*, and `yt-dlp` is what the music player uses to fetch audio — so without cookies, `/music` will not work on most VPS/datacenter hosts.
+>
+> 1. Export a **Netscape-format** `cookies.txt` from a browser where you're logged in (extensions like *Get cookies.txt LOCALLY* work).
+> 2. Save it next to the bot (e.g. `cookies.txt` in the project folder).
+> 3. Point the bot at it in `.env` and restart:
+>
+> ```env
+> YTDLP_COOKIES=./cookies.txt
+> ```
+>
+> Keep that file private — it's a full login secret. If you skip this, expect music playback to fail with a yt-dlp "not a bot" error.
+
 ### 🐳 Run with Docker
 
 ```bash
@@ -174,6 +187,8 @@ All **45** top-level slash commands, grouped by module. Expand a section to see 
 
 <details>
 <summary><b>🎵 Music</b></summary>
+
+> ⚠️ **Requires a `cookies.txt` file.** The player is powered by `yt-dlp`, which YouTube rate-limits/bot-blocks without session cookies. Set `YTDLP_COOKIES=./cookies.txt` in `.env` — see [Configuration](#-configuration) and the [Quick Start](#-quick-start) note. Without it, playback fails with *"Sign in to confirm you're not a bot"*.
 
 | Command | Description |
 |---------|-------------|
