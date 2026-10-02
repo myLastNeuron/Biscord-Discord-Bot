@@ -95,7 +95,7 @@ function progressLine(positionSec, durationSec) {
   }
   const width = 14;
   const ratio = Math.max(0, Math.min(1, pos / durationSec));
-  const head = Math.min(width - 1, Math.round(ratio * (width - 1)));
+  const head = Math.min(width - 1, Math.floor(ratio * (width - 1)));
   return `\`${formatDuration(pos)}\` ${'▬'.repeat(head)}●${'▭'.repeat(width - 1 - head)} \`${formatDuration(durationSec)}\``;
 }
 
@@ -118,6 +118,79 @@ function trackEmbed(track, { header = '🎶 Now Playing', positionSec = 0, volum
   if (loop) bits.push(`🔁 ${loop}`);
   if (bits.length) embed.setFooter({ text: bits.join(' · ') });
   return embed;
+}
+
+// A "live" Now Playing embed message: created for every announced track and
+// edited in place every NP_TICK_MS so the progress bar fills and the clock
+// counts up — instead of each command reply being a dead snapshot. Only one
+// per guild; a new track (or the queue emptying) retires the previous one.
+const NP_TICK_MS = 7000; // 7s — user asked for 5-10s; Discord-safe edit rate
+const nowPlayingMessages = new Map(); // guildId -> Message
+
+function retireNowPlaying(guildId) {
+  const msg = nowPlayingMessages.get(guildId);
+  if (!msg) return;
+  nowPlayingMessages.delete(guildId);
+  msg.edit({ components: [] }).catch(() => null);
+}
+
+// Adopts an already-sent command reply as the live embed (so `/music play`
+// doesn't post a second, duplicate Now Playing message).
+function adoptNowPlayingMessage(guildId, message) {
+  if (!message?.edit) return;
+  const existing = nowPlayingMessages.get(guildId);
+  if (existing && existing !== message) retireNowPlaying(guildId);
+  nowPlayingMessages.set(guildId, message);
+}
+
+async function refreshNowPlaying(guildId) {
+  const msg = nowPlayingMessages.get(guildId);
+  const state = guilds.get(guildId);
+  if (!msg || !state) return;
+
+  // No current track = the message is dead. Drop the handle and stop.
+  if (!state.current) {
+    retireNowPlaying(guildId);
+    return;
+  }
+
+  const track = state.current;
+  const positionSec = state.resource ? (state.resource.playbackDuration || 0) / 1000 : 0;
+  // Nothing left to animate once the track's over (a stalled end); retire so it
+  // doesn't sit at 100% forever.
+  if (track.durationSec > 0 && positionSec >= track.durationSec) {
+    retireNowPlaying(guildId);
+    return;
+  }
+
+  try {
+    await msg.edit({
+      embeds: [trackEmbed(track, {
+        positionSec,
+        volume: state.volume,
+        loop: state.loop,
+        queued: state.queue.length,
+        requesterId: track.requestedBy,
+      })],
+    });
+  } catch {
+    // Deleted / missing perms — stop trying.
+    nowPlayingMessages.delete(guildId);
+  }
+}
+
+let npTimer = null;
+function ensureNowPlayingTimer() {
+  if (npTimer) return;
+  npTimer = setInterval(() => {
+    for (const guildId of nowPlayingMessages.keys()) refreshNowPlaying(guildId);
+    if (!nowPlayingMessages.size) {
+      clearInterval(npTimer);
+      npTimer = null;
+    }
+  }, NP_TICK_MS);
+  // Never hold the process open just for the progress bar.
+  npTimer.unref?.();
 }
 
 // ---------- Track resolution ----------
@@ -570,6 +643,8 @@ function warmNextProbes(queue) {
 // ---------- Playback ----------
 async function playTrack(state, track) {
   state.streamCtl?.destroy?.();
+  // A new track replaces the old one's live Now Playing embed.
+  retireNowPlaying(state.guildId);
   // Low-CPU decision: opus passthrough only when volume is at 100% (no
   // inlineVolume transform needed) AND the source is opus. Anything else
   // (custom volume, non-opus m4a) uses the ffmpeg path. Same audible
@@ -665,7 +740,7 @@ function announceTrack(state, track) {
       queued: state.queue.length,
       requesterId: track.requestedBy,
     })],
-  }).catch(() => null);
+  }).then((msg) => adoptNowPlayingMessage(state.guildId, msg)).catch(() => null);
 }
 
 async function finishPlayback(state, farewell) {
@@ -802,6 +877,10 @@ async function play(voiceChannel, textChannel, query, requesterId) {
     console.log(`[music] queued in ${Date.now() - tStart}ms (${tracks.length} track(s), already playing)`);
   }
   warmNextProbes(state.queue);
+
+  // Track started → the caller's reply will be adopted as the live Now Playing
+  // embed and kept fresh by the ticker.
+  if (started) ensureNowPlayingTimer();
 
   return {
     kind,
@@ -954,6 +1033,7 @@ function handleVoiceStateUpdate(oldState, newState) {
 function disconnectGuild(guildId) {
   const state = guilds.get(guildId);
   if (!state) return;
+  retireNowPlaying(guildId);
   if (state.emptyTimer) clearTimeout(state.emptyTimer);
   state.streamCtl?.destroy?.();
   if (state.connection && state.connection.state.status !== VoiceConnectionStatus.Destroyed) {
@@ -967,6 +1047,7 @@ function disconnectGuild(guildId) {
 
 function destroyPlayer(state) {
   if (guilds.get(state.guildId) !== state) return;
+  retireNowPlaying(state.guildId);
   if (state.emptyTimer) clearTimeout(state.emptyTimer);
   state.streamCtl?.destroy?.();
   try {
@@ -986,6 +1067,7 @@ function cleanupStaleGuilds() {
     if (!state?.connection || state.connection.state.status === VoiceConnectionStatus.Destroyed) {
       if (state.emptyTimer) clearTimeout(state.emptyTimer);
       state.streamCtl?.destroy?.();
+      retireNowPlaying(guildId);
       guilds.delete(guildId);
     }
   }
@@ -1012,6 +1094,8 @@ module.exports = {
   destroyPlayer,
   formatDuration,
   trackEmbed,
+  adoptNowPlayingMessage,
+  ensureNowPlayingTimer,
   MAX_VOLUME,
 };
 
@@ -1025,6 +1109,8 @@ if (require.main === module) {
   assert.strictEqual(bar(100, 200), '▬'.repeat(7) + '●' + '▭'.repeat(6), 'midpoint');
   assert.strictEqual(progressLine(0, 0), '', 'no bar for live/unknown duration');
   assert.strictEqual(progressLine(30, 0), '`00:30`', 'clock only when duration unknown');
+  // The clock expands past an hour without breaking the fixed bar width.
+  assert.ok(progressLine(3661, 7200).startsWith('`1:01:01` `'), 'hour-plus clock');
   console.log('musicManager self-check ok');
   process.exit(0);
 }

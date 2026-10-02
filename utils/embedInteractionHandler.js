@@ -12,6 +12,8 @@ const {
   buildButtonManageSelect,
   buildReactionManageSelect,
   BUTTON_STYLES,
+  cid,
+  splitCid,
 } = require('./embedBuilder');
 const sessionStore = require('./embedSessionStore');
 const templateStore = require('./embedTemplateStore');
@@ -77,12 +79,12 @@ async function handleEmbedInteraction(interaction) {
 // Returns true if this interaction was handled here, so the caller knows
 // not to fall through to other handlers.
 async function handleEmbedInteractionInner(interaction) {
-  const customId = interaction.customId;
-  if (!customId) return false;
+  const rawId = interaction.customId;
+  if (!rawId) return false;
 
   // ---- Stateless live role-toggle button on a *sent* embed ----
-  if (interaction.isButton() && customId.startsWith('embedbtn:role:')) {
-    const roleId = customId.split(':')[2];
+  if (interaction.isButton() && rawId.startsWith('embedbtn:role:')) {
+    const roleId = rawId.split(':')[2];
     const member = interaction.member;
 
     // Safety guards: refuse to toggle roles that can't or shouldn't be
@@ -116,9 +118,14 @@ async function handleEmbedInteractionInner(interaction) {
 
   // Everything below this line only applies to the builder panel itself,
   // namespaced under "embedbuilder:"
-  if (!customId.startsWith(`${CID}:`)) return false;
+  if (!rawId.startsWith(`${CID}:`)) return false;
 
-  const session = sessionStore.getSession(interaction.user.id);
+  // CustomIds carry the session token after "|" (e.g. "embedbuilder:content|
+  // t3") - one builder session per embed purpose, so this panel resolves the
+  // draft it actually belongs to instead of whatever builder the same user
+  // opened most recently. See embedSessionStore.js.
+  const { base: customId, token } = splitCid(rawId);
+  const session = sessionStore.getSessionByToken(interaction.user.id, token);
   if (!session) {
     const msg = { content: 'This builder session expired. Run `/embed new` again.', ephemeral: true };
     if (interaction.isRepliable()) {
@@ -133,9 +140,9 @@ async function handleEmbedInteractionInner(interaction) {
   if (interaction.isStringSelectMenu() && customId === `${CID}:content`) {
     const value = interaction.values[0];
     if (value === 'timestamp') {
-      sessionStore.updateSession(interaction.user.id, (s) => { s.draft.timestamp = !s.draft.timestamp; });
+      sessionStore.updateSession(session, (s) => { s.draft.timestamp = !s.draft.timestamp; });
       await interaction.deferUpdate();
-      await refreshPanel(interaction, sessionStore.getSession(interaction.user.id));
+      await refreshPanel(interaction, session);
       return true;
     }
     await interaction.showModal(buildModal(value, session));
@@ -146,19 +153,19 @@ async function handleEmbedInteractionInner(interaction) {
   if (interaction.isStringSelectMenu() && customId === `${CID}:add`) {
     const value = interaction.values[0];
     if (value === 'field') {
-      await interaction.showModal(buildModal('add_field'));
+      await interaction.showModal(buildModal('add_field', session));
       return true;
     }
     if (value === 'link') {
-      await interaction.showModal(buildModal('add_link_button'));
+      await interaction.showModal(buildModal('add_link_button', session));
       return true;
     }
     if (value === 'role') {
-      await showRoleSelectForButton(interaction);
+      await showRoleSelectForButton(interaction, session);
       return true;
     }
     if (value === 'reaction') {
-      await interaction.showModal(buildModal('add_reaction'));
+      await interaction.showModal(buildModal('add_reaction', session));
       return true;
     }
     return true;
@@ -180,9 +187,9 @@ async function handleEmbedInteractionInner(interaction) {
       return true;
     }
     if (value === 'clear') {
-      sessionStore.updateSession(interaction.user.id, (s) => { s.draft.fields = []; });
+      sessionStore.updateSession(session, (s) => { s.draft.fields = []; });
       await interaction.deferUpdate();
-      await refreshPanel(interaction, sessionStore.getSession(interaction.user.id));
+      await refreshPanel(interaction, session);
       return true;
     }
     return true;
@@ -191,11 +198,11 @@ async function handleEmbedInteractionInner(interaction) {
   // ---- Role select for button ----
   if (interaction.isRoleSelectMenu() && customId === `${CID}:role_select`) {
     const roleId = interaction.values[0];
-    sessionStore.updateSession(interaction.user.id, (s) => {
+    sessionStore.updateSession(session, (s) => {
       s._pendingButton = { roleId, label: null, style: 'Primary', emoji: null };
     });
     // Just show the modal - the user knows which role they selected
-    await interaction.showModal(buildModal('add_role_button'));
+    await interaction.showModal(buildModal('add_role_button', session));
     return true;
   }
 
@@ -214,17 +221,17 @@ async function handleEmbedInteractionInner(interaction) {
   // ---- Button edit/remove actions ----
   if (interaction.isButton() && customId.startsWith(`${CID}:button_edit:`)) {
     const idx = parseInt(customId.split(':')[2], 10);
-    sessionStore.updateSession(interaction.user.id, (s) => { s._editingButtonIdx = idx; });
-    const updatedSession = sessionStore.getSession(interaction.user.id);
+    sessionStore.updateSession(session, (s) => { s._editingButtonIdx = idx; });
+    const updatedSession = session;
     await interaction.showModal(buildModal('edit_button', updatedSession));
     return true;
   }
 
   if (interaction.isButton() && customId.startsWith(`${CID}:button_remove:`)) {
     const idx = parseInt(customId.split(':')[2], 10);
-    sessionStore.updateSession(interaction.user.id, (s) => { s.draft.buttons.splice(idx, 1); });
+    sessionStore.updateSession(session, (s) => { s.draft.buttons.splice(idx, 1); });
     await interaction.deferUpdate();
-    await refreshPanel(interaction, sessionStore.getSession(interaction.user.id));
+    await refreshPanel(interaction, session);
     return true;
   }
 
@@ -237,9 +244,9 @@ async function handleEmbedInteractionInner(interaction) {
   // ---- Reaction manage select ----
   if (interaction.isStringSelectMenu() && customId === `${CID}:reaction_manage_select`) {
     const idx = parseInt(interaction.values[0], 10);
-    sessionStore.updateSession(interaction.user.id, (s) => { s.draft.reactions.splice(idx, 1); });
+    sessionStore.updateSession(session, (s) => { s.draft.reactions.splice(idx, 1); });
     await interaction.deferUpdate();
-    const newSession = sessionStore.getSession(interaction.user.id);
+    const newSession = session;
     if (newSession.draft.reactions.length > 0) {
       await showReactionManager(interaction, newSession);
     } else {
@@ -251,9 +258,9 @@ async function handleEmbedInteractionInner(interaction) {
   // ---- Field manage select ----
   if (interaction.isStringSelectMenu() && customId === `${CID}:field_manage_select`) {
     const idx = parseInt(interaction.values[0], 10);
-    sessionStore.updateSession(interaction.user.id, (s) => { s.draft.fields.splice(idx, 1); });
+    sessionStore.updateSession(session, (s) => { s.draft.fields.splice(idx, 1); });
     await interaction.deferUpdate();
-    const newSession = sessionStore.getSession(interaction.user.id);
+    const newSession = session;
     if (newSession.draft.fields.length > 0) {
       await showFieldManager(interaction, newSession);
     } else {
@@ -264,7 +271,7 @@ async function handleEmbedInteractionInner(interaction) {
 
   // ---- Panel action buttons ----
   if (interaction.isButton() && customId === `${CID}:cancel`) {
-    sessionStore.deleteSession(interaction.user.id);
+    sessionStore.deleteSession(session);
     await interaction.update({ content: 'Builder cancelled.', embeds: [], components: [] });
     return true;
   }
@@ -305,11 +312,11 @@ async function handleEmbedInteractionInner(interaction) {
 
 // ---- Helper functions for multi-step flows ----
 
-async function showRoleSelectForButton(interaction) {
-  const row = buildRoleSelectMenu(`${CID}:role_select`);
+async function showRoleSelectForButton(interaction, session) {
+  const row = buildRoleSelectMenu(cid(session, 'role_select'));
   const cancelButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${CID}:button_back`)
+      .setCustomId(cid(session, 'button_back'))
       .setLabel('Cancel')
       .setStyle(ButtonStyle.Secondary)
   );
@@ -334,7 +341,7 @@ async function showButtonManager(interaction, session) {
   }
   const backButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${CID}:button_back`)
+      .setCustomId(cid(session, 'button_back'))
       .setLabel('Back')
       .setStyle(ButtonStyle.Secondary)
   );
@@ -352,19 +359,19 @@ async function showButtonEditMenu(interaction, session, idx) {
   const styleLabel = BUTTON_STYLES.find(s => s.value === btn.style)?.label || btn.style;
 
   const editBtn = new ButtonBuilder()
-    .setCustomId(`${CID}:button_edit:${idx}`)
+    .setCustomId(cid(session, `button_edit:${idx}`))
     .setLabel('Edit Label/Style')
     .setStyle(ButtonStyle.Primary)
     .setEmoji('✏️');
 
   const removeBtn = new ButtonBuilder()
-    .setCustomId(`${CID}:button_remove:${idx}`)
+    .setCustomId(cid(session, `button_remove:${idx}`))
     .setLabel('Remove')
     .setStyle(ButtonStyle.Danger)
     .setEmoji('🗑️');
 
   const backBtn = new ButtonBuilder()
-    .setCustomId(`${CID}:button_back`)
+    .setCustomId(cid(session, 'button_back'))
     .setLabel('Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -386,7 +393,7 @@ async function showReactionManager(interaction, session) {
   }
   const backButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${CID}:button_back`)
+      .setCustomId(cid(session, 'button_back'))
       .setLabel('Back')
       .setStyle(ButtonStyle.Secondary)
   );
@@ -406,7 +413,7 @@ async function showFieldManager(interaction, session) {
 
   const selectMenu = new ActionRowBuilder().addComponents(
     new (require('discord.js').StringSelectMenuBuilder)()
-      .setCustomId(`${CID}:field_manage_select`)
+      .setCustomId(cid(session, 'field_manage_select'))
       .setPlaceholder('Select a field to remove...')
       .addOptions(fields.map((f, i) => ({
         label: f.name.slice(0, 25),
@@ -417,7 +424,7 @@ async function showFieldManager(interaction, session) {
 
   const backButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${CID}:button_back`)
+      .setCustomId(cid(session, 'button_back'))
       .setLabel('Back')
       .setStyle(ButtonStyle.Secondary)
   );
@@ -465,7 +472,7 @@ async function handleModalSubmit(interaction, kind, session) {
 
   let buttonRejected = null;
 
-  sessionStore.updateSession(interaction.user.id, (s) => {
+  sessionStore.updateSession(session, (s) => {
     const d = s.draft;
     switch (kind) {
       case 'basic':
@@ -591,14 +598,14 @@ async function handleModalSubmit(interaction, kind, session) {
   if (kind === 'save_template') {
     const name = interaction.fields.getTextInputValue('name')?.trim();
     if (name) {
-      const s = sessionStore.getSession(interaction.user.id);
+      const s = session;
       templateStore.saveTemplate(s.guildId, name, {
         embed: s.draft,
         reactions: s.draft.reactions,
         buttons: s.draft.buttons,
         createdBy: interaction.user.id,
       });
-      sessionStore.updateSession(interaction.user.id, (s2) => { s2.name = name; });
+      sessionStore.updateSession(session, (s2) => { s2.name = name; });
       await interaction.reply({ content: `Saved template **${name}**.`, ephemeral: true });
       return;
     }
@@ -622,7 +629,7 @@ async function handleModalSubmit(interaction, kind, session) {
     }).catch(() => null);
   }
 
-  await refreshPanel(interaction, sessionStore.getSession(interaction.user.id));
+  await refreshPanel(interaction, session);
 }
 
 async function sendDraft(interaction, session) {
@@ -640,7 +647,7 @@ async function sendDraft(interaction, session) {
     }
   }
 
-  sessionStore.deleteSession(interaction.user.id);
+  sessionStore.deleteSession(session);
   await interaction.editReply({
     content: `Sent to <#${session.channelId}>.`,
     embeds: [],
@@ -668,7 +675,7 @@ async function updateDraft(interaction, session) {
   try {
     targetChannel = await interaction.client.channels.fetch(targetChannelId);
   } catch (err) {
-    sessionStore.deleteSession(interaction.user.id);
+    sessionStore.deleteSession(session);
     await interaction.editReply({
       content: `Couldn't find the channel (<#${targetChannelId}>). The session has been closed.`,
       embeds: [],
@@ -681,7 +688,7 @@ async function updateDraft(interaction, session) {
   try {
     targetMessage = await targetChannel.messages.fetch(editMessageId);
   } catch (err) {
-    sessionStore.deleteSession(interaction.user.id);
+    sessionStore.deleteSession(session);
     await interaction.editReply({
       content: `Couldn't find message \`${editMessageId}\` in <#${targetChannelId}>. It may have been deleted. The session has been closed.`,
       embeds: [],
@@ -692,7 +699,7 @@ async function updateDraft(interaction, session) {
 
   // Verify the bot authored the message - we can only edit our own messages.
   if (targetMessage.author.id !== interaction.client.user.id) {
-    sessionStore.deleteSession(interaction.user.id);
+    sessionStore.deleteSession(session);
     await interaction.editReply({
       content: `That message wasn't sent by me, so I can't edit it. The session has been closed.`,
       embeds: [],
@@ -717,7 +724,7 @@ async function updateDraft(interaction, session) {
     return;
   }
 
-  sessionStore.deleteSession(interaction.user.id);
+  sessionStore.deleteSession(session);
   await interaction.editReply({
     content: `Updated [the message](https://discord.com/channels/${session.guildId}/${targetChannelId}/${editMessageId}) in <#${targetChannelId}>.`,
     embeds: [],
@@ -736,7 +743,7 @@ async function updateDraft(interaction, session) {
 async function saveSettingsDraft(interaction, session) {
   if (session.purpose === 'welcome') {
     setGuildSettings(session.guildId, { [WELCOME_EMBED_FIELD]: session.draft });
-    sessionStore.deleteSession(interaction.user.id);
+    sessionStore.deleteSession(session);
     await interaction.editReply({
       content: 'Saved. This embed (and any attached buttons) will now be used for the welcome message when someone joins. ' +
         'Run `/welcome test` any time to preview it with placeholders filled in.',
@@ -750,7 +757,7 @@ async function saveSettingsDraft(interaction, session) {
   const field = TICKET_EMBED_FIELDS[kind];
 
   if (!field) {
-    sessionStore.deleteSession(interaction.user.id);
+    sessionStore.deleteSession(session);
     await interaction.editReply({
       content: "Couldn't tell which embed this was for, so nothing was saved. Please reopen it from the relevant settings panel.",
       embeds: [],
@@ -760,7 +767,7 @@ async function saveSettingsDraft(interaction, session) {
   }
 
   setGuildSettings(session.guildId, { [field]: session.draft });
-  sessionStore.deleteSession(interaction.user.id);
+  sessionStore.deleteSession(session);
 
   await interaction.editReply({
     content: `Saved. This embed will now be used ${TICKET_EMBED_USAGE_HINT[kind]}.`,

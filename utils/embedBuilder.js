@@ -12,6 +12,19 @@ const {
 
 const CID = 'embedbuilder'; // customId namespace prefix
 
+// Every builder-panel customId carries the session's short token after a "|",
+// e.g. "embedbuilder:content|t3". Combined with the user id in
+// embedSessionStore, that's what keeps each embed's builder session (its
+// "history") separate instead of one shared draft per user.
+function cid(session, action) {
+  return `${CID}:${action}|${session.token}`;
+}
+
+function splitCid(customId) {
+  const [base, token] = customId.split('|');
+  return { base, token };
+}
+
 // Button style labels for UI
 const BUTTON_STYLES = [
   { value: 'Primary', label: 'Blue (Primary)', emoji: '🔵' },
@@ -230,7 +243,7 @@ function buildPanelComponents(session) {
   const isEditSession = !!session.editMessageId;
 
   const contentSelect = new StringSelectMenuBuilder()
-    .setCustomId(`${CID}:content`)
+    .setCustomId(cid(session, 'content'))
     .setPlaceholder('✏️ Edit the embed...')
     .addOptions([
       { label: 'Title & Description', value: 'basic', emoji: '📄' },
@@ -241,7 +254,7 @@ function buildPanelComponents(session) {
     ]);
 
   const addSelect = new StringSelectMenuBuilder()
-    .setCustomId(`${CID}:add`)
+    .setCustomId(cid(session, 'add'))
     .setPlaceholder('➕ Add something new...')
     .addOptions([
       { label: 'Add a Field (labeled bullet)', value: 'field', emoji: '➕' },
@@ -271,28 +284,28 @@ function buildPanelComponents(session) {
   let primaryActionButton;
   if (isSettingsPurpose) {
     primaryActionButton = new ButtonBuilder()
-      .setCustomId(`${CID}:saveSettings`)
+      .setCustomId(cid(session, 'saveSettings'))
       .setLabel('Save & Use')
       .setStyle(ButtonStyle.Primary)
       .setEmoji('✅');
   } else if (isEditSession) {
     primaryActionButton = new ButtonBuilder()
-      .setCustomId(`${CID}:updatenow`)
+      .setCustomId(cid(session, 'updatenow'))
       .setLabel('Update Message')
       .setStyle(ButtonStyle.Primary)
       .setEmoji('✏️');
   } else {
     primaryActionButton = new ButtonBuilder()
-      .setCustomId(`${CID}:sendnow`)
+      .setCustomId(cid(session, 'sendnow'))
       .setLabel('Send Now')
       .setStyle(ButtonStyle.Primary)
       .setEmoji('📤');
   }
 
   const actionRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`${CID}:save`).setLabel('Save Template').setStyle(ButtonStyle.Success).setEmoji('💾'),
+    new ButtonBuilder().setCustomId(cid(session, 'save')).setLabel('Save Template').setStyle(ButtonStyle.Success).setEmoji('💾'),
     primaryActionButton,
-    new ButtonBuilder().setCustomId(`${CID}:cancel`).setLabel('Cancel').setStyle(ButtonStyle.Danger).setEmoji('✖️')
+    new ButtonBuilder().setCustomId(cid(session, 'cancel')).setLabel('Cancel').setStyle(ButtonStyle.Danger).setEmoji('✖️')
   );
 
   const rows = [
@@ -303,7 +316,7 @@ function buildPanelComponents(session) {
     rows.push(
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
-          .setCustomId(`${CID}:manage`)
+          .setCustomId(cid(session, 'manage'))
           .setPlaceholder('🗑️ Edit or remove...')
           .addOptions(manageOptions)
       )
@@ -376,7 +389,7 @@ function buildModal(kind, session = null) {
 
   switch (kind) {
     case 'basic':
-      modal.setCustomId(`${CID}:modal:basic`).setTitle('Title & Description');
+      modal.setCustomId(cid(session, 'modal:basic')).setTitle('Title & Description');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('title', 'Title', { value: draft?.title })),
         new ActionRowBuilder().addComponents(textInput('description', 'Description', { paragraph: true, value: draft?.description })),
@@ -385,7 +398,7 @@ function buildModal(kind, session = null) {
       );
       break;
     case 'author':
-      modal.setCustomId(`${CID}:modal:author`).setTitle('Author');
+      modal.setCustomId(cid(session, 'modal:author')).setTitle('Author');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('name', 'Author Name', { value: draft?.author?.name })),
         new ActionRowBuilder().addComponents(textInput('iconURL', 'Author Icon URL', { value: draft?.author?.iconURL })),
@@ -393,21 +406,21 @@ function buildModal(kind, session = null) {
       );
       break;
     case 'footer':
-      modal.setCustomId(`${CID}:modal:footer`).setTitle('Footer');
+      modal.setCustomId(cid(session, 'modal:footer')).setTitle('Footer');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('text', 'Footer Text', { value: draft?.footer?.text })),
         new ActionRowBuilder().addComponents(textInput('iconURL', 'Footer Icon URL', { value: draft?.footer?.iconURL }))
       );
       break;
     case 'images':
-      modal.setCustomId(`${CID}:modal:images`).setTitle('Images');
+      modal.setCustomId(cid(session, 'modal:images')).setTitle('Images');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('thumbnail', 'Thumbnail URL (small, top-right)', { value: draft?.thumbnail })),
         new ActionRowBuilder().addComponents(textInput('image', 'Image URL (large, bottom)', { value: draft?.image }))
       );
       break;
     case 'add_field':
-      modal.setCustomId(`${CID}:modal:add_field`).setTitle('Add Field');
+      modal.setCustomId(cid(session, 'modal:add_field')).setTitle('Add Field');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('name', 'Field Name', { required: true })),
         new ActionRowBuilder().addComponents(textInput('value', 'Field Value', { required: true, paragraph: true })),
@@ -415,7 +428,7 @@ function buildModal(kind, session = null) {
       );
       break;
     case 'add_reaction':
-      modal.setCustomId(`${CID}:modal:add_reaction`).setTitle('Add Reaction');
+      modal.setCustomId(cid(session, 'modal:add_reaction')).setTitle('Add Reaction');
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           textInput('emoji', 'Emoji (unicode 👍 or custom :name:id)', { required: true })
@@ -423,7 +436,7 @@ function buildModal(kind, session = null) {
       );
       break;
     case 'add_link_button':
-      modal.setCustomId(`${CID}:modal:add_link_button`).setTitle('Add Link Button');
+      modal.setCustomId(cid(session, 'modal:add_link_button')).setTitle('Add Link Button');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('label', 'Button Label', { required: true, maxLength: 80 })),
         new ActionRowBuilder().addComponents(textInput('url', 'URL (must start with https://)', { required: true })),
@@ -431,7 +444,7 @@ function buildModal(kind, session = null) {
       );
       break;
     case 'add_role_button':
-      modal.setCustomId(`${CID}:modal:add_role_button`).setTitle('Add Role Toggle Button');
+      modal.setCustomId(cid(session, 'modal:add_role_button')).setTitle('Add Role Toggle Button');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('label', 'Button Label', { required: true, maxLength: 80 })),
         new ActionRowBuilder().addComponents(textInput('style', 'Color (Primary, Secondary, Success, Danger)', { required: false })),
@@ -442,7 +455,7 @@ function buildModal(kind, session = null) {
       const editingIdx = session?._editingButtonIdx;
       const btn = editingIdx != null ? draft?.buttons?.[editingIdx] : null;
       const target = btn ? (btn.type === 'link' ? btn.url : btn.roleId) : null;
-      modal.setCustomId(`${CID}:modal:edit_button`).setTitle('Edit Button');
+      modal.setCustomId(cid(session, 'modal:edit_button')).setTitle('Edit Button');
       modal.addComponents(
         new ActionRowBuilder().addComponents(textInput('label', 'Button Label', { required: true, maxLength: 80, value: btn?.label })),
         new ActionRowBuilder().addComponents(textInput('target', 'URL or Role ID', { required: true, value: target })),
@@ -452,7 +465,7 @@ function buildModal(kind, session = null) {
       break;
     }
     case 'save_template':
-      modal.setCustomId(`${CID}:modal:save_template`).setTitle('Save Template');
+      modal.setCustomId(cid(session, 'modal:save_template')).setTitle('Save Template');
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           textInput('name', 'Template Name', { required: true, maxLength: 60, value: session?.name })
@@ -499,7 +512,7 @@ function buildButtonManageSelect(session) {
 
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${CID}:button_manage_select`)
+      .setCustomId(cid(session, 'button_manage_select'))
       .setPlaceholder('Select a button to edit/remove...')
       .addOptions(buttons.map((b, i) => ({
         label: b.label.slice(0, 25),
@@ -517,7 +530,7 @@ function buildReactionManageSelect(session) {
 
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${CID}:reaction_manage_select`)
+      .setCustomId(cid(session, 'reaction_manage_select'))
       .setPlaceholder('Select a reaction to remove...')
       .addOptions(reactions.map((r, i) => ({
         label: `Reaction ${i + 1}`,
@@ -529,6 +542,8 @@ function buildReactionManageSelect(session) {
 
 module.exports = {
   CID,
+  cid,
+  splitCid,
   isValidUrl,
   parseColor,
   draftFromEmbed,

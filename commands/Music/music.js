@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const {
   play, pause, resume, skip, shuffle, remove, setLoop, volume,
   stop, leave, queue, formatDuration, trackEmbed, MAX_VOLUME,
+  adoptNowPlayingMessage,
 } = require('../../utils/musicManager');
 const { PREMIUM_COLORS } = require('../../utils/theme');
 
@@ -113,6 +114,10 @@ module.exports = {
               queued: result.started ? result.count - 1 : result.count,
             })],
           });
+          if (result.started) {
+            const msg = await interaction.fetchReply().catch(() => null);
+            adoptNowPlayingMessage(guildId, msg);
+          }
           return;
         }
         case 'pause': return interaction.reply(pause(guildId));

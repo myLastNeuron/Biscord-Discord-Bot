@@ -1,6 +1,6 @@
 const {
   play, pause, resume, skip, shuffle, remove, setLoop, volume,
-  stop, leave, queue, formatDuration, trackEmbed,
+  stop, leave, queue, formatDuration, trackEmbed, adoptNowPlayingMessage,
 } = require('./musicManager');
 
 const PREFIX = '!';
@@ -51,6 +51,12 @@ async function handleMusicCommand(message) {
   const arg = args.join(' ').trim();
   const reply = (text) => message.channel.send(text).catch(() => null);
   const replyEmbed = (embed) => message.channel.send({ embeds: [embed] }).catch(() => null);
+  // Starts the live Now Playing embed: sends the initial trackEmbed and registers
+  // the sent message so the ticker keeps its progress bar/clock moving.
+  const replyNowPlaying = async (track, opts) => {
+    const msg = await message.channel.send({ embeds: [trackEmbed(track, opts)] }).catch(() => null);
+    adoptNowPlayingMessage(guildId, msg);
+  };
   const fail = (text) => reply(`❌ ${text}`);
 
   try {
@@ -64,11 +70,14 @@ async function handleMusicCommand(message) {
         const header = result.started
           ? (result.kind === 'playlist' ? '🎶 Now Playing — Playlist' : '🎶 Now Playing')
           : '📥 Added to Queue';
-        await replyEmbed(trackEmbed(first, {
+        const opts = {
           header,
           requesterId: message.author.id,
           queued: result.started ? result.count - 1 : result.count,
-        }));
+        };
+        // Only a started track animates; a queued track's snapshot is fine.
+        if (result.started) await replyNowPlaying(first, opts);
+        else await replyEmbed(trackEmbed(first, opts));
         return true;
       }
       case 'pause': await reply(pause(guildId)); return true;
