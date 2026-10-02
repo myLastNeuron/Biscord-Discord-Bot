@@ -26,6 +26,7 @@ const path = require('path');
 // not spawn index.js until it finishes — otherwise the child crash-loops on
 // `Cannot find module 'discord.js'`.
 
+
 const CHILD_SCRIPT = path.join(__dirname, 'index.js');
 const RESPAWN_DELAY_MS = 1000;
 // If the child dies again within this long of its own last start, back off

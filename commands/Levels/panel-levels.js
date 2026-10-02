@@ -2,14 +2,11 @@
  * /panel-levels
  * Full interactive panel for the level system.
  *
- * Fixes applied:
- *  1. Removed the stray `modalCollector` (was a MessageComponentCollector
- *     incorrectly used for modals — caused ghost acknowledgements).
- *  2. Modal handler now calls `modal.deferUpdate()` before doing anything,
- *     so Discord gets an immediate acknowledgement and we can't race with
- *     handlePanelInteraction or any other listener in interactionCreate.js.
- *  3. All modal reply calls changed to `modal.followUp()` after the deferUpdate,
- *     which is the correct pattern once an interaction is deferred.
+ * Interaction flow: button/select clicks are handled by a single
+ * MessageComponentCollector, and modal submissions by a separate modal
+ * collector. Every modal is acknowledged with `modal.deferUpdate()` first so
+ * no other listener in interactionCreate.js can race it, and any output after
+ * that is sent with `modal.followUp()`.
  */
 
 const {
@@ -361,12 +358,10 @@ module.exports = {
     });
 
     // ── Modal submissions ─────────────────────────────────────────────────────
-    // FIX: The old code had a stray createMessageComponentCollector for modals
-    // (wrong collector type — modals are not message components). Removed it.
-    //
-    // FIX: Each modal handler now calls deferUpdate() first. This immediately
-    // acknowledges the interaction with Discord so no other listener can race
-    // to reply first. All follow-up messages use followUp() instead of reply().
+    // Modals are collected separately from component interactions (a modal is
+    // not a message component). Each handler calls deferUpdate() first so the
+    // interaction is acknowledged before any other listener can race to reply,
+    // then sends any output via followUp().
 
     const modalHandler = async modal => {
       if (!modal.isModalSubmit()) return;

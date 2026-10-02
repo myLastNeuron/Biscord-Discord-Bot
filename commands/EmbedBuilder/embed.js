@@ -148,7 +148,7 @@ module.exports = {
 
       // Defensive: on some setups (missing intents, edge-case message types)
       // Discord/discord.js can hand back a message without a populated author.
-      // Without this check that used to crash the whole interaction.
+      // Bail out early rather than dereferencing an undefined author.
       if (!targetMessage.author) {
         console.error(
           '[embed edit] Fetched message has no author field. Raw message:',

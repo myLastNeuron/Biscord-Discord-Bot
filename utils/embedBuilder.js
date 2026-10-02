@@ -142,11 +142,10 @@ function draftFromEmbed(apiEmbed, components = []) {
 // Every URL-type field is guarded with isValidUrl before being handed to the
 // discord.js setter. Those setters validate their input and throw
 // synchronously on anything that isn't a real http(s) URL - a throw that
-// isn't a promise rejection, so it can't be caught by a .catch() on
-// whatever's sending the message, and previously reached process level as
-// an uncaughtException (crashing the whole bot, not just this one guild's
-// message - see the %userAvatar%-as-thumbnail incident this guarded
-// against). Skipping the field is a much better failure mode than that.
+// isn't a promise rejection, so a .catch() on whatever is sending the message
+// wouldn't catch it, and it would surface as a process-level uncaughtException
+// that takes down the whole bot, not just this message. Skipping the field is
+// a much better failure mode.
 function buildEmbedFromDraft(draft) {
   const e = new EmbedBuilder().setColor(draft.color ?? 0x5865f2);
 

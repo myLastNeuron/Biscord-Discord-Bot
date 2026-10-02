@@ -4,13 +4,8 @@
 // by ticketInteractionHandler.js, pollInteractionHandler.js,
 // giveawayInteractionHandler.js, and roleRequestInteractionHandler.js.
 //
-// NOTE: canReviewRoleRequests/canReviewReactionApprovals are duplicated
-// here rather than imported from interactionCreate.js. Both were only used
-// by this reaction-approval block and the just-extracted role-request block
-// (see roleRequestInteractionHandler.js, which also duplicates
-// canReviewRoleRequests) — interactionCreate.js itself no longer calls
-// either, but the functions were left in place there to keep each
-// extraction pass additive-only.
+// NOTE: canReviewRoleRequests/canReviewReactionApprovals live here rather
+// than in interactionCreate.js, which no longer needs them.
 const { PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { getGuildSettings, getReactionApproval, updateReactionApproval } = require('../utils/db');
 

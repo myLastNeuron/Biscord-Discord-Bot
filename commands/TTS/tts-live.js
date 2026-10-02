@@ -28,11 +28,11 @@ module.exports = {
       sub
         .setName('start')
         .setDescription('Start reading this text channel aloud in voice.')
-        // Only "start" is gated (it can pull the bot into voice and speak);
-        // stop/status/test stay open so anyone can mute or inspect it.
-        // Discord only supports default permissions on the top-level command,
-        // not per-subcommand — calling setDefaultMemberPermissions() on a
-        // subcommand builder throws. So the gate is enforced in execute().
+        // Only "start" is gated: it can pull the bot into voice and speak.
+        // Discord's API only supports default_member_permissions at the
+        // command level (not per-subcommand), so this is enforced in code in
+        // execute() below. stop/status/test stay open so anyone can mute or
+        // inspect it.
         .addStringOption((o) =>
           o.setName('language').setDescription('Voice language (default: English)').addChoices(...languageChoices()),
         ),
@@ -53,11 +53,11 @@ module.exports = {
     const guildId = interaction.guildId;
 
     if (sub === 'start') {
-      // Discord can't gate a single subcommand, so enforce it here. Only
-      // "start" needs MoveMembers; stop/status/test are intentionally open.
+      // Gate "start" in code (see the builder comment above) — it can pull the
+      // bot into voice and speak, unlike stop/status/test.
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.MoveMembers)) {
         return interaction.reply({
-          content: '🔒 You need the **Move Members** permission to start live TTS.',
+          content: '⛔ You need the **Move Members** permission to start live TTS.',
           flags: MessageFlags.Ephemeral,
         });
       }
@@ -71,8 +71,8 @@ module.exports = {
       const lang = interaction.options.getString('language') || ttsLive.getStatus(guildId)?.lang || 'en';
       // If the bot isn't in voice yet but the user is, join them first via
       // the shared keep-alive connection so /leave keeps working. Await Ready
-      // so the first chat line isn't dropped while still connecting (the old
-      // fire-and-forget join caused "sits in VC silently" on slow handshakes).
+      // so the first chat line isn't dropped while the connection is still
+      // coming up on slow handshakes.
       if (!inVoice(guildId) && vc) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const { connectToChannel } = require('../../keepAlive');

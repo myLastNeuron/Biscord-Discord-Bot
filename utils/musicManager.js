@@ -8,22 +8,33 @@ const {
   VoiceConnectionStatus,
   entersState,
 } = require('@discordjs/voice');
+const { EmbedBuilder } = require('discord.js');
 const { execFile, spawn } = require('child_process');
 const { PassThrough } = require('stream');
 const path = require('path');
+const { PREMIUM_COLORS } = require('./theme');
 
 // @discordjs/voice decodes `Arbitrary` streams by spawning ffmpeg itself. It
 // looks it up on PATH, so expose the bundled ffmpeg-static binary first.
 // Resilient: never crashes the bot at require-time if ffmpeg is missing
 // (e.g. fresh Linux upload) — /music play throws a friendly error instead,
 // and scripts/ensure-deps.js (run on startup) usually fixes it first.
-// utils/ffmpegPath handles the platform-aware lookup (FFMPEG_BIN may point at
-// the Linux binary, so it falls back to the bundled .exe on Windows).
-const { resolveFfmpegBin, exposeFfmpegOnPath } = require('./ffmpegPath');
-const ffmpegStaticPath = resolveFfmpegBin();
-if (ffmpegStaticPath) {
-  if (require('fs').existsSync(ffmpegStaticPath)) {
-    exposeFfmpegOnPath();
+let ffmpegStaticPath = null;
+try {
+  ffmpegStaticPath = require('ffmpeg-static');
+} catch {
+  ffmpegStaticPath = null;
+}
+if (typeof ffmpegStaticPath === 'string' && ffmpegStaticPath) {
+  const { existsSync } = require('fs');
+  if (existsSync(ffmpegStaticPath)) {
+    if (process.platform !== 'win32') {
+      try { require('fs').chmodSync(ffmpegStaticPath, 0o755); } catch { /* ignore */ }
+    }
+    const ffmpegDir = path.dirname(ffmpegStaticPath);
+    if (!(process.env.PATH || '').split(path.delimiter).includes(ffmpegDir)) {
+      process.env.PATH = ffmpegDir + path.delimiter + (process.env.PATH || '');
+    }
   } else {
     console.warn(`[music] ffmpeg binary not found at ${ffmpegStaticPath} — startup bootstrap should download it (or set FFMPEG_BIN).`);
   }
@@ -70,6 +81,45 @@ function formatDuration(sec) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+// Strip Discord markdown brackets and clip to the embed title limit.
+function cleanTitle(t) {
+  return String(t || 'Unknown').replace(/[[\]]/g, '').slice(0, 250);
+}
+
+// Fixed-width progress bar: filled = played, hollow = remaining, ● = head.
+// Empty string for unknown/live durations so the line just disappears.
+function progressLine(positionSec, durationSec) {
+  const pos = Math.max(0, Math.floor(positionSec || 0));
+  if (!durationSec || !isFinite(durationSec) || durationSec <= 0) {
+    return pos > 0 ? `\`${formatDuration(pos)}\`` : '';
+  }
+  const width = 14;
+  const ratio = Math.max(0, Math.min(1, pos / durationSec));
+  const head = Math.min(width - 1, Math.round(ratio * (width - 1)));
+  return `\`${formatDuration(pos)}\` ${'▬'.repeat(head)}●${'▭'.repeat(width - 1 - head)} \`${formatDuration(durationSec)}\``;
+}
+
+// The one look every music surface shares. `header` is the only thing that
+// changes (Now Playing vs Added to Queue); requester renders as a real mention
+// in the description because footer text can't resolve <@id>.
+function trackEmbed(track, { header = '🎶 Now Playing', positionSec = 0, volume, loop, queued = 0, requesterId } = {}) {
+  const embed = new EmbedBuilder()
+    .setColor(PREMIUM_COLORS.accent)
+    .setTitle(header)
+    .setDescription([
+      `**[${cleanTitle(track.title)}](${track.url})**`,
+      progressLine(positionSec, track.durationSec),
+      requesterId ? `Requested by <@${requesterId}>` : null,
+    ].filter(Boolean).join('\n'));
+  if (track.thumbnail) embed.setThumbnail(track.thumbnail);
+  const bits = [];
+  if (queued > 0) bits.push(`📋 ${queued} in queue`);
+  if (volume != null) bits.push(`🔊 ${volume}%`);
+  if (loop) bits.push(`🔁 ${loop}`);
+  if (bits.length) embed.setFooter({ text: bits.join(' · ') });
+  return embed;
+}
+
 // ---------- Track resolution ----------
 // Everything (song names, video URLs, playlists) is resolved through the
 // bundled yt-dlp binary — play-dl's search broke against current YouTube and
@@ -102,10 +152,12 @@ const YT_FAST_ARGS = [
 // Netscape-format cookies.txt exported from a logged-in browser session and
 // it is passed to every yt-dlp call. See .env.example.
 function ytCookiesArgs() {
-  const cookiePath = process.env.YTDLP_COOKIES || process.env.YT_DLP_COOKIES;
-  if (!cookiePath) return [];
+  // Env var wins, but default to a cookies.txt dropped next to the bot so a
+  // fresh zip-and-run works with no .env entry.
+  const envPath = process.env.YTDLP_COOKIES || process.env.YT_DLP_COOKIES;
+  const cookiePath = envPath || path.join(__dirname, '..', 'cookies.txt');
   if (!require('fs').existsSync(cookiePath)) {
-    console.warn(`[music] YTDLP_COOKIES is set to "${cookiePath}" but no such file exists — ignoring it.`);
+    if (envPath) console.warn(`[music] YTDLP_COOKIES is set to "${envPath}" but no such file exists — ignoring it.`);
     return [];
   }
   return ['--cookies', cookiePath];
@@ -604,10 +656,16 @@ async function handleTrackEnd(state, { skipAnyLoop = false } = {}) {
 }
 
 function announceTrack(state, track) {
-  const link = `[${track.title.replace(/[[\]]/g, '')}](${track.url})`;
-  const duration = formatDuration(track.durationSec);
-  const req = track.requestedBy ? ` — requested by <@${track.requestedBy}>` : '';
-  state.textChannel?.send(`▶️ **${link}** \`${duration}\`${req}`).catch(() => null);
+  if (!state.textChannel) return;
+  state.textChannel.send({
+    embeds: [trackEmbed(track, {
+      positionSec: 0,
+      volume: state.volume,
+      loop: state.loop,
+      queued: state.queue.length,
+      requesterId: track.requestedBy,
+    })],
+  }).catch(() => null);
 }
 
 async function finishPlayback(state, farewell) {
@@ -627,9 +685,8 @@ async function play(voiceChannel, textChannel, query, requesterId) {
     require('./ttsLiveManager').notifyMusicTakeover(voiceChannel.guild.id);
   } catch { /* TTS off or not loaded — ignore */ }
 
-  // Start resolving immediately in parallel with the voice handshake.
-  // Previously these ran sequentially (join ~200-500ms, then resolve ~1s),
-  // stacking both waits before the first byte streamed.
+  // Start resolving immediately in parallel with the voice handshake so the
+  // join and the resolve don't stack up before the first byte streams.
   // Timers below diagnose "takes 1 minute to play" reports in the logs.
   const tStart = Date.now();
   const resolvePromise = resolveTracks(query, requesterId).then(
@@ -675,14 +732,13 @@ async function play(voiceChannel, textChannel, query, requesterId) {
         // Pause (not Stop) when nobody is subscribed: live-TTS ducking steals
         // the subscription briefly and hands it back, music must resume.
         noSubscriber: NoSubscriberBehavior.Pause,
-        // THE early-skip fix. The player calls read() every 20ms and Idle's
-        // after `maxMissedFrames` consecutive empty reads. The default (5 =
-        // 100ms) treats ANY brief stall — yt-dlp network hiccup, or ffmpeg
-        // starved by a concurrent resolve/probe on a small host — as
-        // end-of-track and jumps to the next song, typically audibly cutting
-        // the ending. 50 (~1s) rides out those hiccups; true ends just gain
-        // ~1s of trailing silence before the next track. skip() force-stops,
-        // so it stays instant.
+        // Treat a track as finished only after `maxMissedFrames` consecutive
+        // empty reads (the player polls read() every 20ms; the default of 5 =
+        // 100ms). 100ms is too eager: a brief yt-dlp network hiccup, or ffmpeg
+        // starved by a concurrent resolve/probe on a small host, gets mistaken
+        // for end-of-track and skips ahead, audibly cutting the ending. 50
+        // (~1s) rides out those hiccups; true ends just gain ~1s of trailing
+        // silence before the next track. skip() force-stops, so it stays instant.
         maxMissedFrames: 50,
       },
     });
@@ -733,11 +789,14 @@ async function play(voiceChannel, textChannel, query, requesterId) {
     throw err;
   }
 
+  let started = false;
   if (!state.current) {
+    started = true;
     await playTrack(state, tracks[0]);
     console.log(`[music] playback started ${Date.now() - tStart}ms after command`);
-    announceTrack(state, tracks[0]);
     state.queue.push(...tracks.slice(1));
+    // No announce here: the play command/prefix already replies with trackEmbed.
+    // Subsequent tracks (handleTrackEnd) are announced normally.
   } else {
     state.queue.push(...tracks);
     console.log(`[music] queued in ${Date.now() - tStart}ms (${tracks.length} track(s), already playing)`);
@@ -748,6 +807,7 @@ async function play(voiceChannel, textChannel, query, requesterId) {
     kind,
     count: tracks.length,
     first: tracks[0],
+    started,
   };
 }
 
@@ -846,6 +906,8 @@ function queue(guildId) {
     queue: state.queue,
     volume: state.volume,
     loop: state.loop,
+    // Seconds into the current track — drives the progress bar in trackEmbed.
+    position: state.resource ? (state.resource.playbackDuration || 0) / 1000 : 0,
   };
 }
 
@@ -949,5 +1011,20 @@ module.exports = {
   handleVoiceStateUpdate,
   destroyPlayer,
   formatDuration,
+  trackEmbed,
   MAX_VOLUME,
 };
+
+// Self-check: `node utils/musicManager.js` — verifies the bar math without a
+// test framework. Exits immediately so the cleanup interval can't hold node open.
+if (require.main === module) {
+  const assert = require('assert');
+  const bar = (pos, dur) => progressLine(pos, dur).split(' ')[1];
+  assert.strictEqual(bar(0, 200), '●' + '▭'.repeat(13), 'empty at start');
+  assert.strictEqual(bar(200, 200), '▬'.repeat(13) + '●', 'full at end');
+  assert.strictEqual(bar(100, 200), '▬'.repeat(7) + '●' + '▭'.repeat(6), 'midpoint');
+  assert.strictEqual(progressLine(0, 0), '', 'no bar for live/unknown duration');
+  assert.strictEqual(progressLine(30, 0), '`00:30`', 'clock only when duration unknown');
+  console.log('musicManager self-check ok');
+  process.exit(0);
+}

@@ -1,8 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const {
   play, pause, resume, skip, shuffle, remove, setLoop, volume,
-  stop, leave, queue, formatDuration, MAX_VOLUME,
+  stop, leave, queue, formatDuration, trackEmbed, MAX_VOLUME,
 } = require('../../utils/musicManager');
+const { PREMIUM_COLORS } = require('../../utils/theme');
 
 function musicEmbed(color, title, description, fields = [], footer) {
   const embed = new EmbedBuilder()
@@ -12,14 +13,6 @@ function musicEmbed(color, title, description, fields = [], footer) {
     .addFields(fields);
   if (footer) embed.setFooter(footer);
   return embed;
-}
-
-function trackField(track, inline = true) {
-  return {
-    name: 'Now playing',
-    value: `[${(track.title || '').replace(/[[\]]/g, '')}](${track.url})`,
-    inline,
-  };
 }
 
 function replyQueue(interaction, snapshot) {
@@ -45,7 +38,7 @@ function replyQueue(interaction, snapshot) {
 
   return interaction.reply({
     embeds: [musicEmbed(
-      0x2f3136,
+      PREMIUM_COLORS.accent,
       '🎶 Queue',
       lines.join('\n'),
       [
@@ -110,17 +103,15 @@ module.exports = {
           await interaction.deferReply();
           const result = await play(vc, interaction.channel, query, interaction.user.id);
           const first = result.first;
-          const kindLabel = result.kind === 'playlist' ? `🗒️ Loaded a **${first.channel}** playlist` : '🎵 Added';
-          const duration = formatDuration(first.durationSec);
+          const header = result.started
+            ? (result.kind === 'playlist' ? '🎶 Now Playing — Playlist' : '🎶 Now Playing')
+            : '📥 Added to Queue';
           await interaction.editReply({
-            embeds: [musicEmbed(
-              0x2f3136,
-              kindLabel,
-              `**[${first.title.replace(/[[\]]/g, '')}](${first.url})** — \`${duration}\``,
-              result.count > 1
-                ? [{ name: 'Queue', value: `**${result.count}** song${result.count === 1 ? '' : 's'} added` }]
-                : [{ name: 'Requested by', value: `<@${interaction.user.id}>`, inline: true }],
-            )],
+            embeds: [trackEmbed(first, {
+              header,
+              requesterId: interaction.user.id,
+              queued: result.started ? result.count - 1 : result.count,
+            })],
           });
           return;
         }
@@ -149,21 +140,15 @@ module.exports = {
             return interaction.reply({ content: 'Nothing is playing right now.', ephemeral: true });
           }
           const t = snapshot.current;
-          const embed = musicEmbed(
-            0x2f3136,
-            '🎶 Now playing',
-            `▶️ **[${t.title.replace(/[[\]]/g, '')}](${t.url})**`,
-            [
-              trackField(t),
-              { name: 'Duration', value: `\`${formatDuration(t.durationSec)}\``, inline: true },
-              { name: 'Channel', value: t.channel, inline: true },
-              { name: 'Requested by', value: `<@${t.requestedBy}>`, inline: false },
-              { name: 'Volume', value: `${snapshot.volume}%`, inline: true },
-              { name: 'Loop', value: snapshot.loop, inline: true },
-            ],
-            { text: snapshot.queue.length ? `${snapshot.queue.length} song${snapshot.queue.length === 1 ? '' : 's'} queued` : 'End of queue' },
-          );
-          return interaction.reply({ embeds: [embed] });
+          return interaction.reply({
+            embeds: [trackEmbed(t, {
+              positionSec: snapshot.position,
+              volume: snapshot.volume,
+              loop: snapshot.loop,
+              queued: snapshot.queue.length,
+              requesterId: t.requestedBy,
+            })],
+          });
         }
         default:
           return interaction.reply({ content: 'Unknown music subcommand.', ephemeral: true });

@@ -7,33 +7,19 @@ const { REST, Routes } = require('discord.js');
 // file sits in scripts/, so step up one level to find them.
 const COMMANDS_DIR = path.join(__dirname, '..', 'commands');
 
-function loadCommandData(dir = COMMANDS_DIR, out = [], failures = []) {
+function loadCommandData(dir = COMMANDS_DIR, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) loadCommandData(fullPath, out, failures);
+    if (entry.isDirectory()) loadCommandData(fullPath, out);
     else if (entry.name.endsWith('.js')) {
-      try {
-        const command = require(fullPath);
-        if (command?.data) out.push(command.data.toJSON());
-      } catch (err) {
-        // Don't let one broken command crash the whole run silently — collect
-        // it and report below so the real cause (often a builder misuse) shows.
-        failures.push({ file: path.relative(COMMANDS_DIR, fullPath), message: err.message });
-      }
+      const command = require(fullPath);
+      if (command?.data) out.push(command.data.toJSON());
     }
   }
   return out;
 }
 
-const loadFailures = [];
-const commands = loadCommandData(COMMANDS_DIR, [], loadFailures);
-
-if (loadFailures.length) {
-  console.error(`✗ ${loadFailures.length} command file(s) failed to load:`);
-  for (const f of loadFailures) console.error(`  - ${f.file}: ${f.message}`);
-  process.exit(1);
-}
-
+const commands = loadCommandData();
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
@@ -51,12 +37,7 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
         ? '✅ Deployed instantly to the test guild.'
         : '✅ Deployed globally (may take up to 1 hour to appear everywhere).'
     );
-    // Loading command files pulls in runtime modules that hold live handles
-    // (voice/music/keep-alive), which would otherwise leave this CLI hanging
-    // after the deploy finishes. Exit explicitly now that the work is done.
-    process.exit(0);
   } catch (err) {
     console.error('Failed to deploy commands:', err);
-    process.exit(1);
   }
 })();

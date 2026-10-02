@@ -1,6 +1,6 @@
 const {
   play, pause, resume, skip, shuffle, remove, setLoop, volume,
-  stop, leave, queue, formatDuration,
+  stop, leave, queue, formatDuration, trackEmbed,
 } = require('./musicManager');
 
 const PREFIX = '!';
@@ -50,6 +50,7 @@ async function handleMusicCommand(message) {
   const guildId = message.guild.id;
   const arg = args.join(' ').trim();
   const reply = (text) => message.channel.send(text).catch(() => null);
+  const replyEmbed = (embed) => message.channel.send({ embeds: [embed] }).catch(() => null);
   const fail = (text) => reply(`❌ ${text}`);
 
   try {
@@ -60,13 +61,14 @@ async function handleMusicCommand(message) {
         if (!vc) return fail('join a voice channel first, then try again.');
         const result = await play(vc, message.channel, arg, message.author.id);
         const first = result.first;
-        if (result.kind === 'playlist') {
-          await reply(`🗒️ Loaded **${result.count}** songs from the playlist — starting with **${first.title}**.`);
-        } else if (result.count > 1) {
-          await reply(`🎵 Added **${result.count}** songs — starting with **${first.title}**.`);
-        } else {
-          await reply(`🎵 Playing **${first.title}**.`);
-        }
+        const header = result.started
+          ? (result.kind === 'playlist' ? '🎶 Now Playing — Playlist' : '🎶 Now Playing')
+          : '📥 Added to Queue';
+        await replyEmbed(trackEmbed(first, {
+          header,
+          requesterId: message.author.id,
+          queued: result.started ? result.count - 1 : result.count,
+        }));
         return true;
       }
       case 'pause': await reply(pause(guildId)); return true;
@@ -119,7 +121,13 @@ async function handleMusicCommand(message) {
         const snapshot = queue(guildId);
         if (!snapshot.current) return fail('nothing is playing right now.');
         const t = snapshot.current;
-        await reply(`▶️ **${t.title}** ${formatDurationLabel(t.durationSec)} — requested by <@${t.requestedBy}>`);
+        await replyEmbed(trackEmbed(t, {
+          positionSec: snapshot.position,
+          volume: snapshot.volume,
+          loop: snapshot.loop,
+          queued: snapshot.queue.length,
+          requesterId: t.requestedBy,
+        }));
         return true;
       }
 

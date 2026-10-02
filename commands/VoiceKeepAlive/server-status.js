@@ -12,8 +12,8 @@ module.exports = {
     const guild = interaction.guild;
 
     // buildStatusContent() reads from guild.members.cache (kept live by the
-    // GuildMembers + GuildPresences intents) - no gateway fetch here, same
-    // fix as before, so this is safe to call every 30s from the tracker too.
+    // GuildMembers + GuildPresences intents) - no gateway fetch here, so this
+    // is cheap enough to call every 30s from the tracker too.
     const content = buildStatusContent(guild);
 
     const reply = await interaction.editReply({ content });

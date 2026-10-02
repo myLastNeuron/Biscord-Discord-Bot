@@ -20,15 +20,26 @@ const {
   entersState,
 } = require('@discordjs/voice');
 const { Readable } = require('stream');
+const path = require('path');
 const { TTS_LANGS, textToSpeechBuffer } = require('./tts');
 const { info, warn, debug } = require('./logger');
 
 // @discordjs/voice decodes `Arbitrary` (MP3) by spawning ffmpeg on PATH.
 // musicManager normally sets this up, but TTS must not depend on music ever
 // having loaded first (e.g. /join with no /music play yet) — so ensure it here
-// too. Idempotent, never throws. utils/ffmpegPath does the platform-aware
-// lookup (FFMPEG_BIN may point at the Linux binary, not the Windows .exe).
-require('./ffmpegPath').exposeFfmpegOnPath();
+// too. Idempotent, never throws.
+try {
+  const ffmpegStaticPath = require('ffmpeg-static');
+  if (typeof ffmpegStaticPath === 'string' && ffmpegStaticPath) {
+    const { existsSync } = require('fs');
+    if (existsSync(ffmpegStaticPath)) {
+      const ffmpegDir = path.dirname(ffmpegStaticPath);
+      if (!(process.env.PATH || '').split(path.delimiter).includes(ffmpegDir)) {
+        process.env.PATH = ffmpegDir + path.delimiter + (process.env.PATH || '');
+      }
+    }
+  }
+} catch { /* ffmpeg-static not installed — playback will fail loudly, see pump */ }
 
 const MAX_QUEUE = 5; // pending utterances per guild; beyond this we drop oldest
 const MAX_SAY_CHARS = 200; // message body cap before "Name said ..." prefix
@@ -348,8 +359,8 @@ async function pump(guildId) {
         conn = resolveConnection(guildId);
         if (!connectionReady(conn)) {
           // Don't silently eat the line: put it back at the front and wait
-          // for the next enqueue/test to retry. Previously this `continue`d,
-          // which drained the queue with zero logs or audio ("sits in VC").
+          // for the next enqueue/test to retry, so a slow handshake can't
+          // drain the queue with zero logs or audio ("sits in VC").
           const status = conn?.state?.status || 'no-connection';
           warn('tts-live', `no ready voice connection (status=${status}), re-queued 1 line`, { guildId });
           s.lastError = `no ready voice connection (status=${status}) — I may still be joining; try /tts-live test in a few seconds`.slice(0, 200);

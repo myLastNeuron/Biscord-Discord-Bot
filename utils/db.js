@@ -120,13 +120,13 @@ function _readMutable(file) {
 }
 
 // ---------- Writes ----------
-// Two guarantees the plain writeFileSync path didn't give us:
+// Two guarantees this write path provides:
 //   1. Atomicity — the new contents go to a temp file which is then renamed
 //      over the real one, so a crash mid-write can never leave a corrupt
 //      half-written JSON file behind.
 //   2. Coalescing — every mutation to a file within the same tick collapses
 //      into a single disk write, so a burst of roster clicks or giveaway
-//      entries no longer blocks the event loop once per entry.
+//      entries doesn't block the event loop once per entry.
 // Readers never wait on this: the in-memory cache is refreshed synchronously,
 // so getters see the new value immediately even though the disk write is
 // deferred. Pass { immediate: true } for the rare writes that MUST be durable

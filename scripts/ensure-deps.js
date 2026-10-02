@@ -170,7 +170,6 @@ function ensureNodeModules() {
   if (markers.every((m) => fs.existsSync(m))) return { name: 'node_modules', skipped: true };
 
   console.log('[ensure-deps] Dependencies not installed — running `npm install` (this can take a few minutes)...');
-  // On Windows npm is a .cmd shim, so it must be resolved via the shell.
   const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const res = spawnSync(`${npmCmd} install --no-audit --no-fund`, {
     cwd: ROOT,
@@ -255,30 +254,22 @@ async function ensureFfmpeg() {
   }
 
   let target;
-  const override = process.env.FFMPEG_BIN;
-  // A valid explicit FFMPEG_BIN wins — no need to heal the bundled copy.
-  if (override && fs.existsSync(override)) {
-    return { name: 'ffmpeg', path: override, skipped: true };
-  }
-  // Otherwise resolve the *bundled* binary for this platform. ffmpeg-static
-  // returns FFMPEG_BIN verbatim when it is set, which may point at a wrong-OS
-  // path (e.g. a Linux path on Windows) and hide a genuinely missing binary —
-  // so clear the override (and the require cache) while asking the package.
   try {
-    const indexPath = path.join(FFMPEG_STATIC_DIR, 'index.js');
-    delete require.cache[require.resolve(indexPath)];
-    delete process.env.FFMPEG_BIN;
-    target = require(indexPath);
+    target = require(path.join(FFMPEG_STATIC_DIR, 'index.js'));
   } catch (err) {
     throw new Error(`ffmpeg-static is broken: ${err && err.message}`);
-  } finally {
-    if (override !== undefined) process.env.FFMPEG_BIN = override;
   }
   if (!target) throw new Error('ffmpeg-static: no binary available for this platform/arch');
 
   if (fs.existsSync(target)) {
     try { fs.chmodSync(target, 0o755); } catch { /* ignore */ }
     return { name: 'ffmpeg', path: target, skipped: true };
+  }
+
+  if (process.env.FFMPEG_BIN) {
+    // FFMPEG_BIN points somewhere the package can't produce for us — the
+    // user is expected to place the binary themselves.
+    throw new Error(`ffmpeg binary not found at ${target} (FFMPEG_BIN is set)`);
   }
 
   console.log(`[ensure-deps] Downloading ffmpeg for ${process.platform} → ${target}`);

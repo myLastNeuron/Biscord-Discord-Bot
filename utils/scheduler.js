@@ -159,7 +159,7 @@ async function processAutopostRosters(client) {
 // Auto-locks rosters once (createdAt + lockAfterMinutes) has passed — i.e. a
 // fixed window after the roster was POSTED, regardless of whether it has a
 // scheduled time. This is what stops people joining/leaving hours after the
-// panel went up — previously locking was 100% manual.
+// panel went up.
 //
 // `lockAfterMinutes` is set per-roster at creation time (via the /event
 // create or /event autopost create `lock_after` option, falling back to the
