@@ -9,6 +9,7 @@ const {
 } = require('discord.js');
 const { getGuildSettings } = require('../../utils/db');
 const { buildEmbedFromDraft, buildLiveButtonRows } = require('../../utils/embedBuilder');
+const { buildTicketTypeMenu } = require('../../utils/ticketInteractionHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -47,10 +48,15 @@ module.exports = {
         new ButtonBuilder().setCustomId('ticket:open').setLabel('Open Ticket').setStyle(ButtonStyle.Primary),
       );
       // Any decorative link/role buttons from the custom draft go first, the
-      // functional Open Ticket button is always appended last and can't be
+      // functional Open Ticket control is always appended last and can't be
       // removed via the builder. Capped at 5 rows total (Discord's limit).
       const extraRows = panelDraft ? buildLiveButtonRows(panelDraft.buttons) : [];
-      const rows = [...extraRows, openRow].slice(0, 5);
+      // The dropdown and the plain button are mutually exclusive: types are
+      // only shown when the toggle is ON (and at least one type exists).
+      const types = settings.ticketTypes || [];
+      const useDropdown = !!settings.ticketTypesEnabled && types.length > 0;
+      const functionalRow = useDropdown ? buildTicketTypeMenu(types) : openRow;
+      const rows = [...extraRows, functionalRow].slice(0, 5);
 
       await channel.send({ embeds: [embed], components: rows });
       return interaction.reply({ content: `Ticket panel posted in ${channel}.`, ephemeral: true });

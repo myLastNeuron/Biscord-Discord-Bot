@@ -119,6 +119,16 @@ const HELP_CATEGORIES = [
       { name: '/welcome', desc: 'Setup (channel, message, image), preview, or disable the welcome card.' },
     ],
   },
+  {
+    key: 'utility',
+    emoji: '🪪',
+    label: 'Utility',
+    blurb: 'Handy member tools.',
+    commands: [
+      { name: '/profile', desc: 'Show a member\'s avatar, how long they\'ve been here, and their account age.' },
+      { name: '/love', desc: 'Calculate a playful compatibility score between two members.' },
+    ],
+  },
 ];
 
 function getHelpCategory(key) {

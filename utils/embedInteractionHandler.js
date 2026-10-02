@@ -11,6 +11,7 @@ const {
   buildStyleSelectMenu,
   buildButtonManageSelect,
   buildReactionManageSelect,
+  buildTicketTypeManageSelect,
   BUTTON_STYLES,
   cid,
   splitCid,
@@ -168,6 +169,10 @@ async function handleEmbedInteractionInner(interaction) {
       await interaction.showModal(buildModal('add_reaction', session));
       return true;
     }
+    if (value === 'ticket_type') {
+      await interaction.showModal(buildModal('add_ticket_type', session));
+      return true;
+    }
     return true;
   }
 
@@ -184,6 +189,10 @@ async function handleEmbedInteractionInner(interaction) {
     }
     if (value === 'reactions') {
       await showReactionManager(interaction, session);
+      return true;
+    }
+    if (value === 'ticket_types') {
+      await showTicketTypeManager(interaction, session);
       return true;
     }
     if (value === 'clear') {
@@ -266,6 +275,50 @@ async function handleEmbedInteractionInner(interaction) {
     } else {
       await refreshPanel(interaction, newSession);
     }
+    return true;
+  }
+
+  // ---- Ticket type manage select (remove one) ----
+  if (interaction.isStringSelectMenu() && customId === `${CID}:ticket_type_manage_select`) {
+    const idx = parseInt(interaction.values[0], 10);
+    sessionStore.updateSession(session, (s) => { s.ticketTypes.splice(idx, 1); });
+    await interaction.deferUpdate();
+    if (session.ticketTypes.length > 0) {
+      await showTicketTypeManager(interaction, session);
+    } else {
+      await refreshPanel(interaction, session);
+    }
+    return true;
+  }
+
+  // ---- Ticket Types toggle (panel embed only) ----
+  // ON = dropdown, OFF = plain Open Ticket button. The two are mutually
+  // exclusive, so flipping the switch auto-disables the other mode.
+  if (interaction.isButton() && customId === `${CID}:toggle_types`) {
+    if (session.purpose !== 'ticket:panel') {
+      await interaction.reply({ content: 'That control is only available on the ticket panel embed.', ephemeral: true });
+      return true;
+    }
+    const turningOn = !session.ticketTypesEnabled;
+    if (turningOn && !(session.ticketTypes?.length)) {
+      await interaction.reply({
+        content: 'Add at least one ticket type first — then you can turn the Ticket Types dropdown on.',
+        ephemeral: true,
+      });
+      return true;
+    }
+    sessionStore.updateSession(session, (s) => {
+      s.ticketTypesEnabled = turningOn;
+      // Auto-disable the other mode: the plain button and the dropdown can
+      // never both be active.
+      if (turningOn) s.forcePlainButton = false;
+    });
+    await interaction.deferUpdate();
+    const note = turningOn
+      ? 'Ticket Types **ON** — the panel will show the dropdown and the plain Open Ticket button is removed.'
+      : 'Ticket Types **OFF** — the panel will show the plain Open Ticket button.';
+    await interaction.followUp({ content: note, ephemeral: true }).catch(() => null);
+    await refreshPanel(interaction, session);
     return true;
   }
 
@@ -404,6 +457,25 @@ async function showReactionManager(interaction, session) {
   });
 }
 
+async function showTicketTypeManager(interaction, session) {
+  const selectRow = buildTicketTypeManageSelect(session);
+  if (!selectRow) {
+    await interaction.reply({ content: 'No ticket types to manage.', ephemeral: true });
+    return;
+  }
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(cid(session, 'button_back'))
+      .setLabel('Back')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  await interaction.update({
+    content: '**Select a ticket type to remove:**',
+    embeds: [],
+    components: [selectRow, backButton],
+  });
+}
+
 async function showFieldManager(interaction, session) {
   const fields = session.draft.fields;
   if (!fields.length) {
@@ -505,6 +577,17 @@ async function handleModalSubmit(interaction, kind, session) {
       case 'add_reaction': {
         const emoji = f('emoji');
         if (emoji) d.reactions.push(emoji);
+        break;
+      }
+      case 'add_ticket_type': {
+        const label = f('label');
+        const emoji = f('emoji');
+        if (!label) {
+          buttonRejected = 'Ticket type name is required.';
+          break;
+        }
+        if (!s.ticketTypes) s.ticketTypes = [];
+        s.ticketTypes.push({ label, emoji: emoji || null });
         break;
       }
       case 'add_link_button': {
@@ -767,6 +850,14 @@ async function saveSettingsDraft(interaction, session) {
   }
 
   setGuildSettings(session.guildId, { [field]: session.draft });
+  // The panel embed builder also owns the Open Ticket dropdown's ticket types
+  // and its ON/OFF switch. The dropdown and the plain button are mutually
+  // exclusive: enabling types disables the button, and vice versa.
+  if (kind === 'panel') {
+    const types = session.ticketTypes || [];
+    const enabled = !!session.ticketTypesEnabled && types.length > 0;
+    setGuildSettings(session.guildId, { ticketTypes: types, ticketTypesEnabled: enabled });
+  }
   sessionStore.deleteSession(session);
 
   await interaction.editReply({

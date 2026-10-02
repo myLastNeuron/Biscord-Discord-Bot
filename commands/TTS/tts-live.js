@@ -1,11 +1,7 @@
 const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
-const { TTS_LANGS } = require('../../utils/tts');
+const { TTS_LANGS, languageChoices } = require('../../utils/tts');
 const ttsLive = require('../../utils/ttsLiveManager');
 const { isKeptAlive } = require('../../keepAlive');
-
-function languageChoices() {
-  return Object.entries(TTS_LANGS).map(([code, name]) => ({ name: `${name} (${code})`, value: code }));
-}
 
 function inVoice(guildId) {
   try {

@@ -208,6 +208,15 @@ const DEFAULT_GUILD_SETTINGS = {
   ticketStaffRoleId: null,
   ticketLogChannelId: null,
   ticketDmTranscriptToOpener: true,
+  // Optional ticket types for the panel's Open Ticket dropdown. Empty = the
+  // panel shows a plain Open Ticket button (original behavior). Each entry:
+  // { label: 'Help Hand', emoji: null }. Set via the ticket panel embed builder.
+  ticketTypes: [],
+  // Master switch for the ticket-types dropdown. When ON the panel shows the
+  // dropdown and the plain Open Ticket button is removed; when OFF the button
+  // is shown and the dropdown is hidden. The two are mutually exclusive and
+  // the bot auto-disables whichever isn't in use.
+  ticketTypesEnabled: false,
   upcomingBoardChannelId: null,
   upcomingBoardEnabled: false,
   upcomingBoardMessageId: null,

@@ -481,7 +481,7 @@ function buildGiveawayTemplateEmbed(guild, settings) {
     .setDescription(
       'Customize how every giveaway embed posted in this server looks. Leave a field blank to use the default.\n\n' +
       '**Giveaway placeholders:**\n' +
-      '`%prize%` `%endAtDiscordFormation%` `%endAt%` `%winners%` `%organiser%` `%enteredCount%` `%entryCount%` `%sponsorLink%`\n\n' +
+      '`%prize%` `%endAtDiscordFormation%` `%endAt%` `%winners%` `%organiser%` `%enteredCount%`\n\n' +
       '**Global placeholders:**\n' +
       '`%botName%` `%botID%` `%botAvatar%` `%botTag%` `%botMention%` `%guildName%` `%guildID%` `%guildIcon%`\n' +
       '`%timestamp%` `%shortTime%` `%longTime%` `%shortDate%` `%longDate%` `%shortDateTime%` `%longDateTime%` `%relativeTime%`',

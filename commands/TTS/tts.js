@@ -1,15 +1,11 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { TTS_LANGS, MAX_TOTAL_CHARS, textToSpeechBuffer } = require('../../utils/tts');
+const { MAX_TOTAL_CHARS, textToSpeechBuffer, languageChoices } = require('../../utils/tts');
 const { info, warn } = require('../../utils/logger');
 
 // 10s per-user cooldown — TTS is network-cheap but unbounded spam would
 // hammer Google (429s) and flood channels. In-memory only; resets on restart.
 const cooldowns = new Map(); // userId -> timestamp ms
 const COOLDOWN_MS = 10_000;
-
-function languageChoices() {
-  return Object.entries(TTS_LANGS).map(([code, name]) => ({ name: `${name} (${code})`, value: code }));
-}
 
 module.exports = {
   data: new SlashCommandBuilder()

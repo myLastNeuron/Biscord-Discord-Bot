@@ -261,12 +261,17 @@ function buildPanelComponents(session) {
       { label: 'Add a Link Button', value: 'link', emoji: '🔗' },
       { label: 'Add a Role Button', value: 'role', emoji: '🏷️' },
       { label: 'Add a Reaction (auto-reacted)', value: 'reaction', emoji: '😀' },
+      ...(session.purpose === 'ticket:panel'
+        ? [{ label: 'Add a Ticket Type', value: 'ticket_type', emoji: '🎫' }]
+        : []),
     ]);
 
+  const hasTicketTypes = (session.ticketTypes?.length || 0) > 0;
   const manageOptions = [
     hasFields ? { label: 'Edit / Remove Fields', value: 'fields', emoji: '📋' } : null,
     hasButtons ? { label: 'Edit / Remove Buttons', value: 'buttons', emoji: '🔘' } : null,
     hasReactions ? { label: 'Remove Reactions', value: 'reactions', emoji: '😀' } : null,
+    hasTicketTypes ? { label: 'Remove Ticket Types', value: 'ticket_types', emoji: '🎫' } : null,
     hasFields ? { label: 'Clear All Fields', value: 'clear', emoji: '🗑️' } : null,
   ].filter(Boolean);
 
@@ -322,6 +327,21 @@ function buildPanelComponents(session) {
       )
     );
   }
+  // Ticket panel only: the Ticket Types dropdown and the plain Open Ticket
+  // button are mutually exclusive. This switch controls which the posted panel
+  // uses — ON shows the dropdown, OFF shows the button.
+  if (session.purpose === 'ticket:panel') {
+    const on = !!session.ticketTypesEnabled;
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(cid(session, 'toggle_types'))
+          .setLabel(on ? 'Ticket Types: ON' : 'Ticket Types: OFF')
+          .setStyle(on ? ButtonStyle.Success : ButtonStyle.Secondary)
+          .setEmoji(on ? '🎫' : '🔘')
+      )
+    );
+  }
   rows.push(actionRow);
   return rows;
 }
@@ -347,6 +367,8 @@ function buildGuideText(session) {
   if (draft.fields.length) summary.push(`${draft.fields.length} field${draft.fields.length === 1 ? '' : 's'}`);
   if (draft.buttons.length) summary.push(`${draft.buttons.length} button${draft.buttons.length === 1 ? '' : 's'}`);
   if (draft.reactions.length) summary.push(`${draft.reactions.length} reaction${draft.reactions.length === 1 ? '' : 's'}`);
+  if (session.ticketTypes?.length) summary.push(`${session.ticketTypes.length} ticket type${session.ticketTypes.length === 1 ? '' : 's'}`);
+  if (session.purpose === 'ticket:panel') summary.push(session.ticketTypesEnabled ? '🎫 types ON' : '🔘 button mode');
   if (draft.timestamp) summary.push('🕐 timestamp');
 
   const summaryLine = summary.length
@@ -433,6 +455,13 @@ function buildModal(kind, session = null) {
         new ActionRowBuilder().addComponents(
           textInput('emoji', 'Emoji (unicode 👍 or custom :name:id)', { required: true })
         )
+      );
+      break;
+    case 'add_ticket_type':
+      modal.setCustomId(cid(session, 'modal:add_ticket_type')).setTitle('Add Ticket Type');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(textInput('label', 'Ticket Type Name', { required: true, maxLength: 60, placeholder: 'e.g. Help Hand' })),
+        new ActionRowBuilder().addComponents(textInput('emoji', 'Emoji (optional)'))
       );
       break;
     case 'add_link_button':
@@ -540,6 +569,23 @@ function buildReactionManageSelect(session) {
   );
 }
 
+// Build a menu to select which ticket type to remove
+function buildTicketTypeManageSelect(session) {
+  const types = session.ticketTypes;
+  if (!types?.length) return null;
+
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(cid(session, 'ticket_type_manage_select'))
+      .setPlaceholder('Select a ticket type to remove...')
+      .addOptions(types.map((t, i) => ({
+        label: t.label.slice(0, 100),
+        value: String(i),
+        emoji: t.emoji || '🎫',
+      })))
+  );
+}
+
 module.exports = {
   CID,
   cid,
@@ -556,5 +602,6 @@ module.exports = {
   buildStyleSelectMenu,
   buildButtonManageSelect,
   buildReactionManageSelect,
+  buildTicketTypeManageSelect,
   BUTTON_STYLES,
 };

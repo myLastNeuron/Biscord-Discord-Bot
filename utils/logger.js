@@ -25,14 +25,9 @@ function timestamp() {
   return now.toISOString().replace('T', ' ').replace('Z', '');
 }
 
-function shortTime() {
-  const now = new Date();
-  return `[${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
-}
-
 function formatMessage(level, tag, message, meta = {}) {
   const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-  return `${timestamp()} [${level.toUpperCase()}] [${tag}] ${message}${metaStr} ${shortTime()}`;
+  return `${timestamp()} [${level.toUpperCase()}] [${tag}] ${message}${metaStr}`;
 }
 
 // Buffered file writer — batches log lines and flushes periodically

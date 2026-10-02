@@ -36,7 +36,7 @@ Most "all-in-one" bots either charge a subscription or dump your data on someone
 
 | 🧩 Commands | 🗂️ Feature modules | 🗄️ Database | 🎵 Music + TTS | 🛡️ Supervision |
 |:---:|:---:|:---:|:---:|:---:|
-| **45** slash commands | **24** | **none** — plain JSON | self-healing binaries | crash auto-restart |
+| **47** slash commands | **24** | **none** — plain JSON | self-healing binaries | crash auto-restart |
 
 ---
 
@@ -167,8 +167,9 @@ Everything below is included — nothing is behind a paywall.
 | 🗣️ **TTS** | Text-to-speech files and real-time "read this channel aloud" |
 | 🧩 **Embeds** | A visual embed builder with saved, reusable templates |
 | 🏆 **Levels** | XP from messages, voice, reactions; custom level roles and leaderboards |
-| 🎟️ **Tickets** | Support ticket panels with transcripts and staff roles |
+| 🎟️ **Tickets** | Support ticket panels with transcripts and staff roles — optional named ticket types (e.g. Help Hand) that users pick from a dropdown, with the channel auto-named `username-type` |
 | 📨 **Invite Tracking** | Who invited whom, with leaderboards and rejoin/leave accounting |
+| 🪪 **Member Tools** | `/profile` for avatar, join date and account age; `/love` for a playful randomized compatibility score |
 | 🛠️ **Live Dashboard** | One `/panel` for config, plus auto-refreshing status embeds and stat channels |
 
 ---
@@ -306,9 +307,11 @@ All **45** top-level slash commands, grouped by module. Expand a section to see 
 | `/replyback` | Auto-reply when a user sends a message |
 | `/autodelete` | Auto-delete messages by prefix or user |
 | `/rolerequest` | Post a role request panel |
-| `/ticket` | Post a support ticket panel |
+| `/ticket` | Post a support ticket panel (optionally with a ticket-type dropdown) |
 | `/schedule` | Schedule a message for a future time |
 | `/bot-config` | Edit the bot's status, avatar, and username |
+| `/profile` | Show a member's avatar, join age, and Discord account age |
+| `/love` | Playful randomized compatibility score between two members |
 | `/help` | See every command and feature |
 | `/monopoly` | Create a Monopoly room on Aspal.io |
 

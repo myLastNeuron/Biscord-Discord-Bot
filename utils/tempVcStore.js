@@ -72,11 +72,6 @@ function isActiveChannel(guildId, channelId) {
   return !!(all[guildId] && all[guildId].activeChannels && all[guildId].activeChannels[channelId]);
 }
 
-function getActiveChannelOwner(guildId, channelId) {
-  const all = loadAll();
-  return all[guildId]?.activeChannels?.[channelId]?.ownerId || null;
-}
-
 function addActiveChannel(guildId, channelId, ownerId) {
   const all = loadAll();
   if (!all[guildId]) all[guildId] = { ...DEFAULTS };
@@ -114,7 +109,6 @@ module.exports = {
   getSettings,
   setSettings,
   isActiveChannel,
-  getActiveChannelOwner,
   addActiveChannel,
   removeActiveChannel,
   clearSettings,

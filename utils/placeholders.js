@@ -18,14 +18,8 @@ function giveawaySpecificValues(giveaway) {
     endAtDiscordFormation: giveaway.endAt ? `<t:${Math.floor(giveaway.endAt / 1000)}:F>` : '',
     endAt: giveaway.endAt ? new Date(giveaway.endAt).toUTCString() : '',
     winners: `${winnerCount}`,
-    // Reserved for a future sponsor-link field on the giveaway record
-    // (not part of the data model yet) — always empty for now.
-    sponsorLink: giveaway.sponsorLink || '',
     organiser: giveaway.organiserId ? `<@${giveaway.organiserId}>` : '',
     enteredCount: `${enteredCount}`,
-    // Same as enteredCount until the requirements engine (blacklist/
-    // whitelist channels, role requirements) can invalidate some entries.
-    entryCount: `${enteredCount}`,
   };
 }
 

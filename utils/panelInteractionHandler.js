@@ -841,6 +841,13 @@ async function handlePanelInteraction(interaction) {
           existingDraft,
           purpose: `ticket:${kind}`,
         });
+        // The panel embed builder also owns the ticket-type list used by the
+        // Open Ticket dropdown. Carry the saved list into the session so it can
+        // be edited/removed and re-saved with the embed.
+        if (kind === 'panel') {
+          session.ticketTypes = [...(settings.ticketTypes || [])];
+          session.ticketTypesEnabled = !!settings.ticketTypesEnabled;
+        }
         const embed = buildEmbedPreview(session.draft);
         const components = buildEmbedPanelComponents(session);
         return interaction.reply({

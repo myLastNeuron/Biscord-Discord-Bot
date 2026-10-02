@@ -17,6 +17,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
   AttachmentBuilder,
 } = require('discord.js');
 const { getGuildSettings } = require('../utils/db');
@@ -105,7 +106,39 @@ async function buildTicketTranscript(channel) {
 }
 
 // ---------- Tickets: open a new private ticket channel ----------
-async function handleTicketOpen(interaction) {
+// Builds the channel name from the opener's username + the chosen ticket type,
+// e.g. ("John", "Help Hand") -> "john-help-hand". Both parts are slugified so
+// the result is always a valid Discord channel name.
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function ticketChannelName(username, typeLabel) {
+  const slug = slugify(typeLabel);
+  return (slug ? `${slugify(username)}-${slug}` : `ticket-${slugify(username)}`).slice(0, 90) || 'ticket';
+}
+
+// The Open Ticket dropdown, shown instead of a plain button when the guild has
+// ticket types configured. customId is static; the chosen value is the index.
+function buildTicketTypeMenu(types) {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('ticket:open_type')
+      .setPlaceholder('Choose a ticket type…')
+      .addOptions(types.slice(0, 25).map((t, i) => ({
+        label: t.label.slice(0, 100),
+        value: String(i),
+        ...(t.emoji ? { emoji: t.emoji } : {}),
+      }))),
+  );
+}
+
+// Actually creates the ticket channel. Shared by the plain-button path and the
+// dropdown path so both enforce the same config + one-open-ticket rules.
+async function createTicketChannel(interaction, { typeLabel } = {}) {
   const categoryId = await getTicketCategoryId(interaction.guild);
   const staffRoleId = await getTicketStaffRoleId(interaction.guild);
 
@@ -126,7 +159,9 @@ async function handleTicketOpen(interaction) {
   }
 
   const channel = await interaction.guild.channels.create({
-    name: `ticket-${interaction.user.username}`.toLowerCase().slice(0, 90),
+    name: typeLabel
+      ? ticketChannelName(interaction.user.username, typeLabel)
+      : `ticket-${interaction.user.username}`.toLowerCase().slice(0, 90),
     type: ChannelType.GuildText,
     parent: categoryId,
     topic: interaction.user.id, // used above to detect an existing open ticket
@@ -153,7 +188,7 @@ async function handleTicketOpen(interaction) {
     : new EmbedBuilder()
         .setColor(0x5865f2)
         .setTitle('Ticket Opened')
-        .setDescription(`${interaction.user}, thanks for reaching out — staff will be with you shortly.\n\nClick **Close Ticket** below once this is resolved.`);
+        .setDescription(`${interaction.user}, thanks for reaching out — staff will be with you shortly.\n\nClick **Close Ticket** below once this is resolved.${typeLabel ? `\n\n**Type:** ${typeLabel}` : ''}`);
 
   const closeRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket:close').setLabel('Close Ticket').setStyle(ButtonStyle.Danger),
@@ -167,6 +202,36 @@ async function handleTicketOpen(interaction) {
   await channel.send({ content: `<@&${staffRoleId}>`, embeds: [embed], components: rows });
 
   return interaction.reply({ content: `Ticket opened: ${channel}`, ephemeral: true });
+}
+
+async function handleTicketOpen(interaction) {
+  const settings = getGuildSettings(interaction.guild.id);
+  const types = settings.ticketTypes || [];
+  // Types configured AND the toggle is ON → ask which kind first; the value is
+  // the index into the list. Otherwise behave exactly as before (plain button).
+  if (settings.ticketTypesEnabled && types.length) {
+    return interaction.reply({
+      content: 'What kind of ticket would you like to open?',
+      components: [buildTicketTypeMenu(types)],
+      ephemeral: true,
+    });
+  }
+  return createTicketChannel(interaction);
+}
+
+async function handleTicketTypeSelect(interaction) {
+  const settings = getGuildSettings(interaction.guild.id);
+  if (!settings.ticketTypesEnabled) {
+    return interaction.update({ content: 'Ticket types are currently turned off — please use the Open Ticket button.', components: [] });
+  }
+  const types = settings.ticketTypes || [];
+  const chosen = types[parseInt(interaction.values[0], 10)];
+  if (!chosen) {
+    return interaction.update({ content: 'That ticket type is no longer available — please try again.', components: [] });
+  }
+  // Ack the dropdown so it doesn't spin, then create the channel under the
+  // same interaction (replies use interaction.reply below, so no deferUpdate).
+  return createTicketChannel(interaction, { typeLabel: chosen.label });
 }
 
 // ---------- Tickets: close the ticket channel and generate a transcript ----------
@@ -258,7 +323,12 @@ async function handleTicketInteraction(interaction) {
     return true;
   }
 
+  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket:open_type') {
+    await handleTicketTypeSelect(interaction);
+    return true;
+  }
+
   return false;
 }
 
-module.exports = { handleTicketInteraction };
+module.exports = { handleTicketInteraction, buildTicketTypeMenu, ticketChannelName };

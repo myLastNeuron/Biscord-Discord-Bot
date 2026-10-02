@@ -2,8 +2,6 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-const figlet = require('figlet');
-
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const { startScheduler } = require('./utils/scheduler');
 const { init: initErrorHandler } = require('./utils/errorHandler');
@@ -12,35 +10,20 @@ const { startServerStatusUpdater } = require('./serverStatusTracker');
 const { startUpcomingBoardRefresher } = require('./utils/upcomingBoard');
 
 // ─────────────────────────────────────────────
-//  Startup UI — just the figlet banner, nothing else
+//  Startup UI — a fixed banner, nothing else
 // ─────────────────────────────────────────────
 
-function stripAnsi(str) {
-  return str.replace(/\x1b\[[0-9;]*m/g, '');
-}
-
-function renderBanner() {
-  // figlet's "ANSI Shadow" font — clean double-line block glyphs, no jagged
-  // hand-built diagonals. horizontalLayout keeps letters from crowding.
-  const raw = figlet.textSync('BISCORD', {
-    font: 'ANSI Shadow',
-    horizontalLayout: 'default',
-  });
-  // trim trailing blank line figlet tends to leave
-  return raw.replace(/\n+$/, '');
-}
+const STARTUP_BANNER = `\x1b[96m
+ ██████╗ ██╗███████╗ ██████╗ ██████╗ ██████╗ ██████╗
+ ██╔══██╗██║██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔══██╗
+ ██████╔╝██║███████╗██║     ██║   ██║██████╔╝██║  ██║
+ ██╔══██╗██║╚════██║██║     ██║   ██║██╔══██╗██║  ██║
+ ██████╔╝██║███████║╚██████╗╚██████╔╝██║  ██║██████╔╝
+ ╚═════╝ ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
+\x1b[0m`;
 
 function printStartupBanner() {
-  const banner = renderBanner();
-  const bannerWidth = Math.max(...banner.split('\n').map(l => stripAnsi(l).length));
-  const centeredBanner = banner
-    .split('\n')
-    .map(l => ' '.repeat(Math.max(0, Math.floor((bannerWidth - stripAnsi(l).length) / 2))) + l)
-    .join('\n');
-
-  console.log('');
-  console.log(`\x1b[96m${centeredBanner}\x1b[0m`);
-  console.log('');
+  console.log(STARTUP_BANNER);
 }
 
 const client = new Client({

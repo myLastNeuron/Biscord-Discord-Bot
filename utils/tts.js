@@ -122,3 +122,9 @@ async function textToSpeechBuffer(text, lang = 'en') {
 }
 
 module.exports = { TTS_LANGS, MAX_TOTAL_CHARS, splitForTts, fetchTtsMp3, textToSpeechBuffer };
+
+// Discord choice list for the TTS language option, shared by /tts and /tts-live.
+function languageChoices() {
+  return Object.entries(TTS_LANGS).map(([code, name]) => ({ name: `${name} (${code})`, value: code }));
+}
+module.exports.languageChoices = languageChoices;

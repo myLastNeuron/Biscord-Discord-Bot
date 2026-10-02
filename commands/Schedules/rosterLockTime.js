@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { getGuildSettings, setGuildSettings } = require('../../utils/db');
+const { setGuildSettings } = require('../../utils/db');
 
 // Sets the SERVER DEFAULT for how many minutes after a roster is posted it
 // auto-locks (blocks both join and leave). This is only a fallback — hosts
@@ -35,10 +35,5 @@ module.exports = {
         + 'Hosts can still override this per-roster with the `lock_after` option on `/event create`.',
       ephemeral: true,
     });
-  },
-
-  // Optional convenience for other commands/panels that want to read the current value.
-  async currentValue(guildId) {
-    return getGuildSettings(guildId).rosterAutoLockMinutes ?? 15;
   },
 };
