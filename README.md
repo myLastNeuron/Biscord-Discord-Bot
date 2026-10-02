@@ -82,17 +82,55 @@ You should see the ASCII banner once the bot connects. Run `/panel` in your serv
 > Always start the bot through `npm start` (which runs `run.js`). Running `index.js` directly skips the supervisor, the auto-restart, and the binary self-heal.
 
 > [!IMPORTANT]
-> **Music needs a `cookies.txt` file.** YouTube blocks bot traffic with *"Sign in to confirm you're not a bot"*, and `yt-dlp` is what the music player uses to fetch audio — so without cookies, `/music` will not work on most VPS/datacenter hosts.
->
-> 1. Export a **Netscape-format** `cookies.txt` from a browser where you're logged in (extensions like *Get cookies.txt LOCALLY* work).
-> 2. Save it next to the bot (e.g. `cookies.txt` in the project folder).
-> 3. Point the bot at it in `.env` and restart:
->
-> ```env
-> YTDLP_COOKIES=./cookies.txt
-> ```
->
-> Keep that file private — it's a full login secret. If you skip this, expect music playback to fail with a yt-dlp "not a bot" error.
+> **Music needs a `cookies.txt` file.** YouTube blocks bot traffic with *"Sign in to confirm you're not a bot"*, and `yt-dlp` — the tool the music player uses to fetch audio — has no session of its own. Without cookies, `/music` will not work on most VPS/datacenter hosts. Follow **[Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)** below to make one.
+
+#### 🍪 Getting the YouTube `cookies.txt`
+
+`cookies.txt` is a snapshot of your logged-in YouTube session in **Netscape format**, which `yt-dlp` replays so YouTube treats the bot as you. Here is exactly how to produce it:
+
+1. **Log into YouTube** in a desktop browser (Chrome, Edge, Brave or Firefox). Use the account the music should play as. A throwaway/secondary account is safer than your main one — this file is a full login token.
+
+2. **Install a Netscape-format cookie exporter:**
+
+   | Browser | Extension |
+   |---|---|
+   | Chrome / Edge / Brave | **Get cookies.txt LOCALLY** (open source — it never uploads your cookies) |
+   | Firefox | **cookies.txt** by Lennon Hill |
+
+3. **Export the cookies.** Open `https://www.youtube.com` in a tab *while logged in*, click the extension's toolbar icon, choose **Export** (a.k.a. *Download*), and save the file as `cookies.txt`. Export the current YouTube site — not "all cookies", and not a private/incognito window.
+
+4. **Put the file next to the bot.** Save it in the project root (the folder with `package.json`), so the layout is:
+
+   ```
+   biscord-discord-bot/
+   ├── package.json
+   ├── .env
+   └── cookies.txt   ← here
+   ```
+
+   `yt-dlp` picks a root-level `cookies.txt` up automatically — **no `.env` change is required**. If you keep it somewhere else, tell the bot where it is and restart:
+
+   ```env
+   YTDLP_COOKIES=./cookies.txt
+   ```
+
+5. **Verify it works** (optional, before starting the bot). Run the bundled `yt-dlp` against a test video:
+
+   ```bash
+   # macOS / Linux
+   node_modules/@distube/yt-dlp/bin/yt-dlp --cookies cookies.txt --simulate "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+   # Windows (PowerShell)
+   node_modules\@distube\yt-dlp\bin\yt-dlp.exe --cookies cookies.txt --simulate "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+   ```
+
+   Printing track info means it works. Seeing *"Sign in to confirm you're not a bot"* means the export was wrong or the cookies already expired — re-do steps 1–3.
+
+6. **Start the bot** (`npm start`).
+
+> **Local runs only:** if the bot runs on the same machine as your browser, you can skip the export and let `yt-dlp` read the cookies directly with `YTDLP_EXTRA_ARGS=--cookies-from-browser chrome` (or `firefox`/`edge`). This does **not** work on a VPS, which has no browser — use the exported `cookies.txt` there.
+
+> Keep `cookies.txt` private — it is a login secret. It is already listed in `.gitignore`, so don't force-add it. Cookies expire every few weeks/months; when music breaks with the "not a bot" error again, re-export and overwrite the file.
 
 ### 🐳 Run with Docker
 
@@ -102,6 +140,15 @@ docker run -d --name biscord --env-file .env -v biscord-data:/app/data biscord
 ```
 
 The image installs production dependencies only and fetches the correct music binaries on first start. Mount a volume at `/app/data` to persist state across rebuilds.
+
+Music in Docker also needs the cookie file mounted in (see [Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)):
+
+```bash
+docker run -d --name biscord --env-file .env \
+  -v biscord-data:/app/data \
+  -v "$PWD/cookies.txt:/app/cookies.txt:ro" \
+  biscord
+```
 
 ---
 
@@ -188,7 +235,7 @@ All **45** top-level slash commands, grouped by module. Expand a section to see 
 <details>
 <summary><b>🎵 Music</b></summary>
 
-> ⚠️ **Requires a `cookies.txt` file.** The player is powered by `yt-dlp`, which YouTube rate-limits/bot-blocks without session cookies. Set `YTDLP_COOKIES=./cookies.txt` in `.env` — see [Configuration](#-configuration) and the [Quick Start](#-quick-start) note. Without it, playback fails with *"Sign in to confirm you're not a bot"*.
+> ⚠️ **Requires a `cookies.txt` file.** The player is powered by `yt-dlp`, which YouTube rate-limits/bot-blocks without session cookies. Drop `cookies.txt` in the project root (or set `YTDLP_COOKIES=./cookies.txt` in `.env`) — see **[Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)** for the exact steps. Without it, playback fails with *"Sign in to confirm you're not a bot"*.
 
 | Command | Description |
 |---------|-------------|
@@ -408,7 +455,7 @@ The `ensure-deps` step swaps Windows binaries for Linux ones automatically. If i
 The fetched `yt-dlp` is checked against the release's published `SHA2-256SUMS`, and an unverifiable download is deleted rather than run. Retry (a flaky network can fail the checksum fetch), or pin a digest with `YTDLP_SHA256=<hex>`. For a custom build, point `YTDLP_CHECKSUM_URL` at its manifest. `YTDLP_SKIP_CHECKSUM=1` skips the check entirely — only if you trust the source.
 
 **Music fails with "Sign in to confirm you're not a bot"**
-YouTube blocks datacenter/VPS IPs. Update yt-dlp (`npm install` again) and give it session cookies: export a Netscape-format `cookies.txt` from a logged-in browser, then set `YTDLP_COOKIES=/path/to/cookies.txt` and restart. Keep that file private — it's a login secret.
+YouTube blocks datacenter/VPS IPs. First update yt-dlp (`npm install` again), then give it session cookies — follow **[Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)**. In short: export a Netscape-format `cookies.txt` from a logged-in browser, drop it in the project root (or set `YTDLP_COOKIES=/path/to/cookies.txt`), and restart. Keep that file private — it's a login secret.
 
 **A yt-dlp "please remove them from your command/configuration" warning**
 That was the deprecated `--youtube-skip-*-manifest` switches ([yt-dlp#14198](https://github.com/yt-dlp/yt-dlp/issues/14198)); recent builds use the `skip` extractor argument instead. Make sure you're on an up-to-date copy — this repo no longer passes the deprecated flags.
