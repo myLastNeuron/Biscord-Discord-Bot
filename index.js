@@ -34,7 +34,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,     // needed for purge
     GatewayIntentBits.GuildVoiceStates,  // needed for temp voice channels (join/leave/move events)
     GatewayIntentBits.GuildBans,         // needed for audit log: ban/unban events
-    GatewayIntentBits.MessageContent,    // required: prefix music commands, auto-react/auto-delete/reply-back matching, media-only enforcement
+    GatewayIntentBits.MessageContent,    // required: auto-react/auto-delete/reply-back matching, media-only enforcement
   ],
   partials: [Partials.GuildMember, Partials.User],
 });

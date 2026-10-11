@@ -14,9 +14,7 @@ module.exports = {
       });
     }
 
-    // Stop live TTS FIRST so it can hand the connection back to music (if it
-    // was ducked) before keep-alive destroys the connection object. Music
-    // itself is left alone on purpose — /music stop/leave owns that path.
+    // Stop live TTS first so it releases the connection before keep-alive destroys it.
     try {
       require('../../utils/ttsLiveManager').stop(interaction.guildId);
     } catch { /* TTS already off — ignore */ }

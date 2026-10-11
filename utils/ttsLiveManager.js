@@ -4,11 +4,8 @@
 //  - No temp files, no audio cache, no setInterval. One small Map entry per
 //    guild while enabled; one MP3 Buffer (~tens of KB) alive at a time.
 //  - Serial pump: one fetch + one ffmpeg decode at a time, max 5 queued.
-//  - Shares the ONE live voice connection (music's if present, else
-//    keep-alive's). Never creates a second connection.
-//  - Music coexistence: pause music player -> speak on a lightweight TTS
-//    player subscribed to the same connection -> re-subscribe music player
-//    and unpause. Never touches music queue/current/resource.
+//  - Shares the ONE live voice connection held by keep-alive. Never creates
+//    a second connection.
 
 const {
   getVoiceConnection,
@@ -24,10 +21,8 @@ const path = require('path');
 const { TTS_LANGS, textToSpeechBuffer } = require('./tts');
 const { info, warn, debug } = require('./logger');
 
-// @discordjs/voice decodes `Arbitrary` (MP3) by spawning ffmpeg on PATH.
-// musicManager normally sets this up, but TTS must not depend on music ever
-// having loaded first (e.g. /join with no /music play yet) — so ensure it here
-// too. Idempotent, never throws.
+// @discordjs/voice decodes `Arbitrary` (MP3) by spawning ffmpeg on PATH, so
+// put the bundled ffmpeg-static directory on PATH. Idempotent, never throws.
 try {
   const ffmpegStaticPath = require('ffmpeg-static');
   if (typeof ffmpegStaticPath === 'string' && ffmpegStaticPath) {
@@ -111,10 +106,6 @@ function resolveConnection(guildId) {
   const live = getVoiceConnection(guildId);
   if (live) return live;
   try {
-    const musicState = require('./musicManager').getState?.(guildId);
-    if (musicState?.connection) return musicState.connection;
-  } catch { /* music not loaded — ignore */ }
-  try {
     const { keepAliveTargets } = require('../keepAlive');
     const target = keepAliveTargets?.get(guildId);
     if (target?.connection) return target.connection;
@@ -141,7 +132,6 @@ function start({ guildId, voiceChannelId, textChannelId, lang = 'en' }) {
       pumping: false,
       speaking: false,
       ttsPlayer: null,
-      pausedMusic: false,
       lastEnd: 0,
       lastUserAt: new Map(),
       cooldownUntil: 0,
@@ -161,21 +151,6 @@ function start({ guildId, voiceChannelId, textChannelId, lang = 'en' }) {
   return getStatus(guildId);
 }
 
-function restoreMusic(guildId) {
-  const s = sessions.get(guildId);
-  try {
-    const music = require('./musicManager');
-    const musicState = music.getState?.(guildId);
-    if (s?.pausedMusic && musicState?.connection && musicState?.player) {
-      if (connectionReady(musicState.connection)) {
-        try { musicState.connection.subscribe(musicState.player); } catch { /* ignore */ }
-        try { musicState.player.unpause(); } catch { /* ignore */ }
-      }
-    }
-  } catch { /* music gone — nothing to restore */ }
-  if (s) s.pausedMusic = false;
-}
-
 function stop(guildId) {
   const s = sessions.get(guildId);
   if (!s) return false;
@@ -184,31 +159,9 @@ function stop(guildId) {
   s.speaking = false;
   s.cooldownUntil = 0;
   try { s.ttsPlayer?.stop(true); } catch { /* already idle */ }
-  restoreMusic(guildId);
   sessions.delete(guildId); // free the entry so idle RAM stays flat
   info('tts-live', 'stopped', { guildId });
   return true;
-}
-
-// Called (lazily) by musicManager.play() before it starts a new track, so a
-// mid-sentence TTS never leaves the connection subscribed to the wrong player
-// (which would make the new song play silently on an orphaned player).
-function notifyMusicTakeover(guildId) {
-  const s = sessions.get(guildId);
-  if (!s) return;
-  s.queue.length = 0;
-  s.speaking = false;
-  try { s.ttsPlayer?.stop(true); } catch { /* ignore */ }
-  // Re-point the connection at the music player if we had stolen it. The new
-  // track then plays normally; TTS keeps its binding for later messages.
-  try {
-    const music = require('./musicManager');
-    const musicState = music.getState?.(guildId);
-    if (musicState?.connection && musicState?.player && connectionReady(musicState.connection)) {
-      try { musicState.connection.subscribe(musicState.player); } catch { /* ignore */ }
-    }
-  } catch { /* ignore */ }
-  s.pausedMusic = false;
 }
 
 // ---------- Public: enqueue from messageCreate (fire-and-forget) ----------
@@ -230,10 +183,6 @@ function enqueue(message, opts = {}) {
     if (!raw.trim()) {
       debug('tts-live', 'drop: empty content (sticker/attachment/embed only)', { guildId });
       return; // stickers / attachments-only / embeds
-    }
-    if (!opts.bypassFilters && raw.startsWith('!')) {
-      debug('tts-live', 'drop: ! prefix (music command)', { guildId });
-      return; // music prefix commands (handled elsewhere)
     }
 
     const now = Date.now();
@@ -336,8 +285,7 @@ async function pump(guildId) {
       const sayText = s.queue.shift();
       if (!sayText) continue;
 
-      // Fetch FIRST (network wait, no voice interruption yet) so music only
-      // pauses for speech that actually exists.
+      // Fetch FIRST (network wait, no voice interruption yet).
       let audio;
       try {
         const started = Date.now();
@@ -370,20 +318,6 @@ async function pump(guildId) {
         }
       }
 
-      // Duck music only when it is on THIS connection and actually playing.
-      let ducked = false;
-      try {
-        const music = require('./musicManager');
-        const musicState = music.getState?.(guildId);
-        const mp = musicState?.player;
-        if (
-          musicState?.current && mp && musicState.connection === conn &&
-          (mp.state?.status === AudioPlayerStatus.Playing || mp.state?.status === AudioPlayerStatus.Paused)
-        ) {
-          try { mp.pause(); ducked = true; s.pausedMusic = true; } catch { ducked = false; }
-        }
-      } catch { /* no music — speak directly */ }
-
       const player = ensurePlayer(s);
       let resource;
       try {
@@ -411,11 +345,7 @@ async function pump(guildId) {
         try { resource?.playStream?.destroy?.(); } catch { /* ignore */ }
         resource = null;
       }
-
-      if (!s.queue.length && ducked) restoreMusic(guildId);
     }
-    // Queue drained while ducked (e.g. last line skipped after duck) — restore.
-    if (!s.queue.length && s.pausedMusic) restoreMusic(guildId);
   } finally {
     s.pumping = false;
   }
@@ -459,7 +389,6 @@ module.exports = {
   enqueue,
   queueTestLine,
   pump,
-  notifyMusicTakeover,
   handleVoiceStateUpdate,
   MAX_QUEUE,
 };

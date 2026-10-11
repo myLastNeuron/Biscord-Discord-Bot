@@ -2,9 +2,9 @@
 
 # 🎛️ BISCORD
 
-**An all-in-one, self-hosted Discord bot for communities that want moderation, events, music and a live control panel — without standing up a database.**
+**An all-in-one, self-hosted Discord bot for communities that want moderation, events and a live control panel — without standing up a database.**
 
-Moderation · Event Rosters · Giveaways · Polls · Music · Live Dashboard · TTS · Voice Tools · Levels · Tickets
+Moderation · Event Rosters · Giveaways · Polls · Live Dashboard · TTS · Voice Tools · Levels · Tickets
 
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.17-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge&logo=discord&logoColor=white)
@@ -26,7 +26,7 @@ Most "all-in-one" bots either charge a subscription or dump your data on someone
 | | |
 |---|---|
 | 🗄️ **No database required** | All state lives in `data/` as readable JSON — back it up by copying a folder |
-| 🩺 **Self-healing & verified** | Auto-downloads the right `ffmpeg` / `yt-dlp` for Windows **or** Linux — the `yt-dlp` download is **SHA-256 verified** before it runs — and `run.js` restarts the bot if it ever crashes |
+| 🩺 **Self-healing & verified** | Auto-downloads the right `ffmpeg` for Windows **or** Linux, and `run.js` restarts the bot if it ever crashes |
 | 🖱️ **Click-first setup** | `/panel` is a live dashboard — welcome, logging, tickets, levels, temp VCs, invite tracking and more, all driven by buttons and modals |
 | 📅 **Built for event communities** | Roster sign-ups with main/sub slots, attendance stats, recurring auto-posts, giveaways and polls |
 | 🧱 **Hardened data layer** | Atomic (temp-file + rename) and batched writes, so a crash can't corrupt your JSON |
@@ -34,9 +34,9 @@ Most "all-in-one" bots either charge a subscription or dump your data on someone
 
 ### At a glance
 
-| 🧩 Commands | 🗂️ Feature modules | 🗄️ Database | 🎵 Music + TTS | 🛡️ Supervision |
+| 🧩 Commands | 🗂️ Feature modules | 🗄️ Database | 🗣️ TTS | 🛡️ Supervision |
 |:---:|:---:|:---:|:---:|:---:|
-| **47** slash commands | **24** | **none** — plain JSON | self-healing binaries | crash auto-restart |
+| **46** slash commands | **23** | **none** — plain JSON | live + file TTS | crash auto-restart |
 
 ---
 
@@ -44,7 +44,7 @@ Most "all-in-one" bots either charge a subscription or dump your data on someone
 
 > **Prerequisites:** [Node.js](https://nodejs.org) **18.17+** and a bot application from the [Discord Developer Portal](https://discord.com/developers/applications).
 
-**1. Clone and install** — the postinstall step fetches `ffmpeg` / `yt-dlp` for your platform.
+**1. Clone and install** — the postinstall step fetches `ffmpeg` for your platform.
 
 ```bash
 git clone https://github.com/myLastNeuron/biscord-discord-bot.git
@@ -81,57 +81,6 @@ You should see the ASCII banner once the bot connects. Run `/panel` in your serv
 > [!TIP]
 > Always start the bot through `npm start` (which runs `run.js`). Running `index.js` directly skips the supervisor, the auto-restart, and the binary self-heal.
 
-> [!IMPORTANT]
-> **Music needs a `cookies.txt` file.** YouTube blocks bot traffic with *"Sign in to confirm you're not a bot"*, and `yt-dlp` — the tool the music player uses to fetch audio — has no session of its own. Without cookies, `/music` will not work on most VPS/datacenter hosts. Follow **[Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)** below to make one.
-
-#### 🍪 Getting the YouTube `cookies.txt`
-
-`cookies.txt` is a snapshot of your logged-in YouTube session in **Netscape format**, which `yt-dlp` replays so YouTube treats the bot as you. Here is exactly how to produce it:
-
-1. **Log into YouTube** in a desktop browser (Chrome, Edge, Brave or Firefox). Use the account the music should play as. A throwaway/secondary account is safer than your main one — this file is a full login token.
-
-2. **Install a Netscape-format cookie exporter:**
-
-   | Browser | Extension |
-   |---|---|
-   | Chrome / Edge / Brave | **Get cookies.txt LOCALLY** (open source — it never uploads your cookies) |
-   | Firefox | **cookies.txt** by Lennon Hill |
-
-3. **Export the cookies.** Open `https://www.youtube.com` in a tab *while logged in*, click the extension's toolbar icon, choose **Export** (a.k.a. *Download*), and save the file as `cookies.txt`. Export the current YouTube site — not "all cookies", and not a private/incognito window.
-
-4. **Put the file next to the bot.** Save it in the project root (the folder with `package.json`), so the layout is:
-
-   ```
-   biscord-discord-bot/
-   ├── package.json
-   ├── .env
-   └── cookies.txt   ← here
-   ```
-
-   `yt-dlp` picks a root-level `cookies.txt` up automatically — **no `.env` change is required**. If you keep it somewhere else, tell the bot where it is and restart:
-
-   ```env
-   YTDLP_COOKIES=./cookies.txt
-   ```
-
-5. **Verify it works** (optional, before starting the bot). Run the bundled `yt-dlp` against a test video:
-
-   ```bash
-   # macOS / Linux
-   node_modules/@distube/yt-dlp/bin/yt-dlp --cookies cookies.txt --simulate "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-   # Windows (PowerShell)
-   node_modules\@distube\yt-dlp\bin\yt-dlp.exe --cookies cookies.txt --simulate "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-   ```
-
-   Printing track info means it works. Seeing *"Sign in to confirm you're not a bot"* means the export was wrong or the cookies already expired — re-do steps 1–3.
-
-6. **Start the bot** (`npm start`).
-
-> **Local runs only:** if the bot runs on the same machine as your browser, you can skip the export and let `yt-dlp` read the cookies directly with `YTDLP_EXTRA_ARGS=--cookies-from-browser chrome` (or `firefox`/`edge`). This does **not** work on a VPS, which has no browser — use the exported `cookies.txt` there.
-
-> Keep `cookies.txt` private — it is a login secret. It is already listed in `.gitignore`, so don't force-add it. Cookies expire every few weeks/months; when music breaks with the "not a bot" error again, re-export and overwrite the file.
-
 ### 🐳 Run with Docker
 
 ```bash
@@ -139,16 +88,7 @@ docker build -t biscord .
 docker run -d --name biscord --env-file .env -v biscord-data:/app/data biscord
 ```
 
-The image installs production dependencies only and fetches the correct music binaries on first start. Mount a volume at `/app/data` to persist state across rebuilds.
-
-Music in Docker also needs the cookie file mounted in (see [Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)):
-
-```bash
-docker run -d --name biscord --env-file .env \
-  -v biscord-data:/app/data \
-  -v "$PWD/cookies.txt:/app/cookies.txt:ro" \
-  biscord
-```
+The image installs production dependencies only and fetches the correct ffmpeg binary on first start. Mount a volume at `/app/data` to persist state across rebuilds.
 
 ---
 
@@ -162,7 +102,6 @@ Everything below is included — nothing is behind a paywall.
 | 📅 **Event Rosters** | Reaction/button sign-up panels with main + sub slots, auto-lock, attendance stats |
 | 🎁 **Giveaways** | Timed giveaways with a join button, instant end, and winner re-rolls |
 | 📊 **Polls** | Multi-option polls with live results |
-| 🎵 **Music** | YouTube playback by name or URL, queue, loop, shuffle, volume |
 | 🔊 **Voice Tools** | Keep-alive VC connection, VC member list, join/leave logging, join notifications |
 | 🗣️ **TTS** | Text-to-speech files and real-time "read this channel aloud" |
 | 🧩 **Embeds** | A visual embed builder with saved, reusable templates |
@@ -176,7 +115,7 @@ Everything below is included — nothing is behind a paywall.
 
 ## 📜 Command Reference
 
-All **45** top-level slash commands, grouped by module. Expand a section to see its commands.
+All **44** top-level slash commands, grouped by module. Expand a section to see its commands.
 
 <details>
 <summary><b>🛡️ Moderation</b> — 10 commands</summary>
@@ -230,23 +169,6 @@ All **45** top-level slash commands, grouped by module. Expand a section to see 
 | `/poll end` | End a poll immediately |
 | `/poll results` | View current results |
 | `/poll delete` | Delete a poll record |
-
-</details>
-
-<details>
-<summary><b>🎵 Music</b></summary>
-
-> ⚠️ **Requires a `cookies.txt` file.** The player is powered by `yt-dlp`, which YouTube rate-limits/bot-blocks without session cookies. Drop `cookies.txt` in the project root (or set `YTDLP_COOKIES=./cookies.txt` in `.env`) — see **[Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)** for the exact steps. Without it, playback fails with *"Sign in to confirm you're not a bot"*.
-
-| Command | Description |
-|---------|-------------|
-| `/music play` | Play a song by name or YouTube URL |
-| `/music pause` · `/music resume` | Pause / resume playback |
-| `/music skip` | Skip to the next song |
-| `/music shuffle` | Shuffle the queue |
-| `/music stop` | Stop playback and clear the queue |
-| `/music queue` · `/music nowplaying` | Show the queue / current track |
-| `/music loop` · `/music volume` · `/music remove` | Loop mode, volume, remove a queued song |
 
 </details>
 
@@ -334,7 +256,7 @@ Embeds built with `/embed`, welcome messages, and `/server-status` all **auto-re
 | Runtime | Node.js 18.17+ (CommonJS) |
 | Library | [discord.js](https://discord.js.org) v14 |
 | Voice | `@discordjs/voice`, `@discordjs/opus`, `opusscript` |
-| Music | `@distube/yt-dlp`, `ffmpeg-static` |
+| Audio | `ffmpeg-static` (TTS playback) |
 | Encryption | `libsodium-wrappers` |
 | Storage | JSON file store (`data/`) — no external database |
 | Config | `dotenv` |
@@ -364,9 +286,9 @@ Embeds built with `/embed`, welcome messages, and `/server-status` all **auto-re
                    └─────────────┘      └──────────────┘      └──────────────┘
 ```
 
-- **`run.js`** is the only entry point you run. It bootstraps the music binaries, spawns `index.js`, and respawns it (with backoff) if it exits non-zero.
+- **`run.js`** is the only entry point you run. It bootstraps the ffmpeg binary, spawns `index.js`, and respawns it (with backoff) if it exits non-zero.
 - **`index.js`** creates the Discord client, loads `commands/` and `events/`, and starts the background schedulers.
-- **`utils/`** holds the managers and builders (music, levels, giveaways, polls, rosters, embeds, tickets…).
+- **`utils/`** holds the managers and builders (levels, giveaways, polls, rosters, embeds, tickets…).
 - **`utils/safeFile.js`** is the shared JSON layer: writes go to a temp file then rename (atomic), and multiple changes in the same tick collapse into one write.
 
 Runtime state is just files under `data/` — `guildSettings.json`, `events.json`, `warnings.json`, `giveaways.json`, `polls.json`, `invites.json`, `levels.json`, and friends. Back up the folder and you've backed up the bot.
@@ -384,15 +306,10 @@ Copy `.env.example` to `.env` and fill in at least the two required values.
 | `GUILD_ID` | ❌ | Server ID — registers commands instantly to that guild (great for testing) |
 | `STATS_MEMBERS_CHANNEL_ID` | ❌ | Voice channel whose name shows the member count |
 | `STATS_ONLINE_CHANNEL_ID` | ❌ | Voice channel whose name shows the online count |
-| `YT_DLP_BINARY_PATH` | ❌ | Custom path to the `yt-dlp` binary (Linux hosting) |
 | `FFMPEG_BIN` | ❌ | Custom path to the `ffmpeg` binary (Linux hosting) |
-| `YTDLP_COOKIES` | ❌ | Path to a Netscape `cookies.txt` — fixes YouTube "confirm you're not a bot" on VPS/datacenter hosts |
 | `DATA_DIR` | ❌ | Override where runtime JSON state is stored (default `./data`) |
 | `LOG_LEVEL` | ❌ | `debug` \| `info` \| `warn` \| `error` (default `info`) |
-| `SKIP_BOOTSTRAP` | ❌ | Set to `1` to skip the `ffmpeg` / `yt-dlp` bootstrap (offline dev) |
-| `YTDLP_SHA256` | ❌ | Pin the expected SHA-256 of the downloaded `yt-dlp` binary (default: verified against the release's `SHA2-256SUMS`) |
-| `YTDLP_CHECKSUM_URL` | ❌ | Custom `SHA256SUMS` manifest URL to verify `yt-dlp` against |
-| `YTDLP_SKIP_CHECKSUM` | ❌ | Set to `1` to skip `yt-dlp` checksum verification (not recommended — the download then runs unverified) |
+| `SKIP_BOOTSTRAP` | ❌ | Set to `1` to skip the `ffmpeg` bootstrap (offline dev) |
 | `LOG_ERROR_STACKS` | ❌ | Set to `1` to include full stack traces in log-channel error reports (off by default to avoid leaking paths) |
 
 The `.env` file, runtime data in `data/`, and all logs are excluded from version control.
@@ -406,7 +323,6 @@ The `.env` file, runtime data in `data/`, and all logs are excluded from version
 │   ├── Moderation/        ban, kick, timeout, warnings, purge, lockdown…
 │   ├── Events/            roster panels, autopost, attendance stats
 │   ├── Giveaways/         giveaway lifecycle
-│   ├── Music/             playback, queue, loop, volume
 │   ├── Levels/            xp, rank, leaderboard, panel
 │   ├── Dashboard/         the /panel control centre
 │   └── …                  AutoReact, Polls, Tickets, TTS, Voice*, Welcome…
@@ -443,7 +359,7 @@ npm test       # unit tests (node:test)
 | Deploy | `npm run deploy` | Register slash commands with Discord |
 | Lint | `npm run lint` | Run ESLint |
 | Test | `npm test` | Run the unit tests |
-| Bootstrap | (auto) | Ensures correct `yt-dlp` / `ffmpeg` binaries |
+| Bootstrap | (auto) | Ensures the correct `ffmpeg` binary |
 
 Both checks run on every push and pull request via [`.github/workflows/ci.yml`](.github/workflows/ci.yml), across Node 20, 22 and 24.
 
@@ -451,17 +367,8 @@ Both checks run on every push and pull request via [`.github/workflows/ci.yml`](
 
 ## ❓ FAQ & Troubleshooting
 
-**Music or TTS doesn't play / "wrong binary" errors on Linux**
-The `ensure-deps` step swaps Windows binaries for Linux ones automatically. If it was skipped (`SKIP_BOOTSTRAP=1`) or failed, re-run `npm install`, or point `YT_DLP_BINARY_PATH` / `FFMPEG_BIN` at your own binaries.
-
-**`ensure-deps` refuses the yt-dlp download / "SHA-256 mismatch"**
-The fetched `yt-dlp` is checked against the release's published `SHA2-256SUMS`, and an unverifiable download is deleted rather than run. Retry (a flaky network can fail the checksum fetch), or pin a digest with `YTDLP_SHA256=<hex>`. For a custom build, point `YTDLP_CHECKSUM_URL` at its manifest. `YTDLP_SKIP_CHECKSUM=1` skips the check entirely — only if you trust the source.
-
-**Music fails with "Sign in to confirm you're not a bot"**
-YouTube blocks datacenter/VPS IPs. First update yt-dlp (`npm install` again), then give it session cookies — follow **[Getting the YouTube `cookies.txt`](#-getting-the-youtube-cookiestxt)**. In short: export a Netscape-format `cookies.txt` from a logged-in browser, drop it in the project root (or set `YTDLP_COOKIES=/path/to/cookies.txt`), and restart. Keep that file private — it's a login secret.
-
-**A yt-dlp "please remove them from your command/configuration" warning**
-That was the deprecated `--youtube-skip-*-manifest` switches ([yt-dlp#14198](https://github.com/yt-dlp/yt-dlp/issues/14198)); recent builds use the `skip` extractor argument instead. Make sure you're on an up-to-date copy — this repo no longer passes the deprecated flags.
+**TTS doesn't play / "wrong binary" errors on Linux**
+The `ensure-deps` step swaps Windows binaries for Linux ones automatically. If it was skipped (`SKIP_BOOTSTRAP=1`) or failed, re-run `npm install`, or point `FFMPEG_BIN` at your own ffmpeg binary.
 
 **The bot restarts in a loop**
 It's blocked during startup — almost always a missing or invalid `DISCORD_TOKEN`. Fix `.env` and check the latest startup log. If the token was reset in the Developer Portal, update `.env`; the old one is rejected with a `401`.
@@ -492,11 +399,6 @@ A security audit was performed on this codebase — the full report, including
 evidence and residual risk, lives in **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)**.
 What changed as a result:
 
-- **Downloaded binaries are integrity-checked.** The `yt-dlp` binary fetched by
-  `ensure-deps` is verified against the release's published `SHA2-256SUMS`
-  before it is ever executed; an unverifiable download is deleted, not run.
-  See `YTDLP_SHA256` / `YTDLP_CHECKSUM_URL` / `YTDLP_SKIP_CHECKSUM` in
-  [Configuration](#-configuration).
 - **Dependencies are patched.** `npm audit --omit=dev` reports **0
   vulnerabilities**; an npm `overrides` entry pins `tar` past the critical
   path-traversal advisories.

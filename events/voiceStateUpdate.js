@@ -2,7 +2,6 @@ const { Events, ChannelType, AuditLogEvent } = require('discord.js');
 const tempVcStore = require('../utils/tempVcStore');
 const { getVcNotifyRule, getVcActivitySettings } = require('../utils/panelExtrasStore');
 const vcSessions = require('../utils/vcActivitySessions');
-const { handleVoiceStateUpdate: handleMusicLeave } = require('../utils/musicManager');
 const { sendAuditLog } = require('../utils/auditLogger');
 const { findAuditLogExecutor } = require('../utils/auditLogLookup');
 
@@ -136,11 +135,6 @@ function scheduleDeleteIfStillEmpty(guild, channelId) {
 module.exports = {
   name: Events.VoiceStateUpdate,
   async execute(oldState, newState) {
-    // ---------- Music: auto-leave when the bot is all alone ----------
-    // Runs unconditionally (no try/catch needed — it's synchronous and
-    // defensive). Fires its own graceful timer, never blocks the rest.
-    handleMusicLeave(oldState, newState);
-
     // ---------- Audit log: voice state changes ----------
     try {
       const member = newState.member || oldState.member;
@@ -213,7 +207,7 @@ module.exports = {
     }
 
     // ---------- Live TTS: follow bot moves, clear queue when empty ----------
-    // Isolated: never blocks music/temp-VC logic. Full stop only when the bot
+    // Isolated: never blocks temp-VC logic. Full stop only when the bot
     // itself leaves voice; otherwise just drops the pending backlog.
     try {
       require('../utils/ttsLiveManager').handleVoiceStateUpdate(oldState, newState);

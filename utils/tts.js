@@ -1,4 +1,4 @@
-// Google Translate TTS helper — zero-dep, zero CPU (no ffmpeg/yt-dlp).
+// Google Translate TTS helper — zero-dep, zero CPU (no ffmpeg).
 // Fetches tiny MP3 bytes over HTTPS and concats them. The 20ms of local
 // work is string splitting + Buffer.concat; everything else is network wait,
 // so this is safe on capped hosts (e.g. Wispbyte 35% CPU).

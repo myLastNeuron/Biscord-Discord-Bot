@@ -2,7 +2,6 @@
 const { listRules } = require('../utils/autoReactStore');
 const { ruleMatches, applyReactions, templateToRegex } = require('../utils/autoReactMatcher');
 const { getGuildSettings, saveReactionApproval, findPendingReactionApproval } = require('../utils/db');
-const { handleMusicCommand } = require('../utils/musicPrefixHandler');
 const {
   getAutoDeletePrefixRule,
   isAutoDeleteUser,
@@ -267,27 +266,16 @@ module.exports = {
     if (!message.guild || message.author.bot) return;
 
     // Maintenance mode: turn everything off for this guild (auto-delete,
-    // reply-back, auto-react, reaction-approval, prefix music commands) so
-    // "bot off" means off.
+    // reply-back, auto-react, reaction-approval) so "bot off" means off.
     const guildSettings = getGuildSettings(message.guild.id);
     if (guildSettings.botEnabled === false) return;
 
     // ---------- Media-Only: file/picture only enforcement ----------
-    // Runs before music / auto-react so text in media-only never slips through.
+    // Runs before auto-react so text in media-only never slips through.
     try {
       if (await handleMediaOnly(message)) return;
     } catch (err) {
       console.error('[mediaOnly] Error processing message:', err);
-    }
-
-    // ---------- Music: `!` prefix commands ----------
-    // Handled first so the command message isn't eaten by auto-delete rules
-    // and doesn't get auto-reactions slapped on it. Returns true when the
-    // message was a music command.
-    try {
-      if (await handleMusicCommand(message)) return;
-    } catch (err) {
-      console.error('[music] Error processing prefix command:', err);
     }
 
     // Own try/catch, runs first and independently of Auto-React / Reaction
@@ -303,7 +291,7 @@ module.exports = {
 
     // ---------- Live TTS: speak bound-channel chat in voice ----------
     // Isolated like every other bolt-on here: fire-and-forget, never blocks
-    // auto-react / approval / music prefix handling below.
+    // auto-react / approval handling below.
     try {
       const ttsLive = require('../utils/ttsLiveManager');
       if (ttsLive.isEnabled(message.guild.id)) ttsLive.enqueue(message);

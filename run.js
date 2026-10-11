@@ -18,11 +18,11 @@ const path = require('path');
 
 // ---------- Self-healing dependencies (Windows -> Linux / Wispbyte) ----------
 // Panels often run `node run.js` directly without `npm install`, and zipped
-// `node_modules` from Windows contain the wrong ffmpeg/yt-dlp binaries.
-// Run the bootstrap BEFORE spawning the bot so music/voice self-repairs.
+// `node_modules` from Windows contain the wrong ffmpeg binary.
+// Run the bootstrap BEFORE spawning the bot so voice self-repairs.
 // Set SKIP_BOOTSTRAP=1 to skip (offline dev). Never crashes the supervisor.
 // AWAITED before startChild() at the bottom of this file: on a fresh copy this
-// installs the npm dependencies and downloads the music binaries, and we must
+// installs the npm dependencies and downloads the ffmpeg binary, and we must
 // not spawn index.js until it finishes — otherwise the child crash-loops on
 // `Cannot find module 'discord.js'`.
 
@@ -84,7 +84,7 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// Bootstrap first (installs npm deps / downloads music binaries), THEN spawn
+// Bootstrap first (installs npm deps / downloads ffmpeg), THEN spawn
 // the bot, so the child never starts against a half-installed tree.
 (async () => {
   try {

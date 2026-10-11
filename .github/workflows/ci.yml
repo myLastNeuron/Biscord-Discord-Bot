@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# `scripts/ensure-deps.js` runs on postinstall and downloads the ffmpeg /
-# yt-dlp binaries for the current platform. That is unnecessary for lint and
+# `scripts/ensure-deps.js` runs on postinstall and downloads the ffmpeg
+# binary for the current platform. That is unnecessary for lint and
 # unit tests, and it makes CI slower and dependent on the network — so we
 # short-circuit it with SKIP_BOOTSTRAP (see README "Configuration").
 env:

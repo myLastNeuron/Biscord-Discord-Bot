@@ -9,10 +9,6 @@ function inVoice(guildId) {
     if (getVoiceConnection(guildId)) return true;
   } catch { /* ignore */ }
   if (isKeptAlive(guildId)) return true;
-  try {
-    const music = require('../../utils/musicManager');
-    if (music.getState?.(guildId)?.connection) return true;
-  } catch { /* ignore */ }
   return false;
 }
 
