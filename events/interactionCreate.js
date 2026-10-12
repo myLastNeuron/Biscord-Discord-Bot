@@ -13,6 +13,7 @@ const { handleEmbedInteraction } = require('../utils/embedInteractionHandler');
 const { handleManualReactInteraction } = require('../utils/manualReactHandler');
 const { handleTicketInteraction } = require('../utils/ticketInteractionHandler');
 const { handlePollInteraction } = require('../utils/pollInteractionHandler');
+const { handleMusicInteraction } = require('../utils/musicInteractionHandler');
 const { handleGiveawayInteraction } = require('../utils/giveawayInteractionHandler');
 const { handleRoleRequestInteraction } = require('../utils/roleRequestInteractionHandler');
 const { handleReactionApprovalInteraction } = require('../utils/reactionApprovalInteractionHandler');
@@ -186,6 +187,9 @@ module.exports = {
 
     // ---------- Polls: vote / end poll ----------
     if (await handlePollInteraction(interaction)) return;
+
+    // ---------- Music player: pause / skip / loop / volume / stop buttons ----------
+    if (await handleMusicInteraction(interaction)) return;
 
     // ---------- Embed builder: panel select menus / modals / buttons,
     // and role-toggle buttons on already-sent embeds ----------

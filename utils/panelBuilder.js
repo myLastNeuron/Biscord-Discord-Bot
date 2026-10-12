@@ -1531,7 +1531,7 @@ function buildLevelSystemEmbed(guild, settings, defs) {
   return new EmbedBuilder()
     .setColor(PREMIUM_COLORS.accent)
     .setTitle('✨ Level System')
-    .setDescription('XP and ranks for your community — automatic from chat activity. Members earn XP from messages, voice time, reactions, and slash commands.')
+    .setDescription('XP and levels for your community — automatic from chat activity. Members earn XP from messages, voice time, reactions, and slash commands.')
     .addFields(
       { name: '📈 XP Settings', value: xpSection, inline: false },
       { name: '🔔 Notifications', value: notifySection, inline: false },

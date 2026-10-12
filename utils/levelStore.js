@@ -33,6 +33,7 @@
  *         totalXp: 0,
  *         lastMessageAt: 0,      // epoch ms, cooldown for message/command/reaction XP
  *         voiceJoinedAt: null,   // epoch ms, when they joined a VC
+ *         messageCount: 0,       // lifetime chat messages counted
  *       }
  *     }
  *   }
@@ -81,7 +82,7 @@ const DEFAULT_LEVEL_DEFS = [
 ];
 
 function emptyUser() {
-  return { xp: 0, level: 0, totalXp: 0, lastMessageAt: 0, voiceJoinedAt: null };
+  return { xp: 0, level: 0, totalXp: 0, lastMessageAt: 0, voiceJoinedAt: null, messageCount: 0 };
 }
 
 // ── internal helpers ──────────────────────────────────────────────────────────
@@ -326,6 +327,15 @@ function resetAll(guildId) {
   save(store);
 }
 
+/** Bump a user's lifetime message counter (incremented per chat message) */
+function incrementMessageCount(guildId, userId) {
+  const store = getStore();
+  ensureMigrated(store, guildId);
+  const user = getUserRecord(store, guildId, userId);
+  user.messageCount = (user.messageCount ?? 0) + 1;
+  save(store);
+}
+
 /** Update XP cooldown timestamp (shared by message/command/reaction XP) */
 function setLastMessage(guildId, userId) {
   const store = getStore();
@@ -373,5 +383,5 @@ module.exports = {
   getLevelDefinitions, setLevelDefinition, deleteLevelDefinition,
   getUser, getLeaderboard,
   awardXP, setUserLevel, setUserXP, resetUser, resetAll,
-  setLastMessage, canEarnXP, setVoiceJoin, flushVoiceXP,
+  setLastMessage, incrementMessageCount, canEarnXP, setVoiceJoin, flushVoiceXP,
 };

@@ -270,6 +270,34 @@ module.exports = {
     const guildSettings = getGuildSettings(message.guild.id);
     if (guildSettings.botEnabled === false) return;
 
+    // ---------- Music prefix commands (!p, !np, !s, !lp, ...) ----------
+    // Runs first so playback commands still work in media-only / auto-delete
+    // channels. Returns false for anything that isn't a music command, so the
+    // handlers below are unaffected.
+    try {
+      const music = require('../utils/musicManager');
+      if (await music.handlePrefix(message)) return;
+    } catch (err) {
+      console.error('[music] prefix handler error:', err?.message || err);
+    }
+
+    // ---------- XP prefix command (!xp, !xp @user) ----------
+    // Runs next to music, before media-only / auto-delete, so it works in those
+    // channels too. Returns for anything else.
+    try {
+      const m = /^!xp(?:\s+<@!?(\d+)>)?\s*$/i.exec((message.content || '').trim());
+      if (m) {
+        const { buildXpEmbed } = require('../utils/xpEmbed');
+        const targetId = m[1] ?? message.author.id;
+        const target = await message.client.users.fetch(targetId).catch(() => null);
+        if (!target) await message.reply('Could not find that user.');
+        else await message.reply({ embeds: [buildXpEmbed(target, message.guild.id)] });
+        return;
+      }
+    } catch (err) {
+      console.error('[xp] prefix handler error:', err?.message || err);
+    }
+
     // ---------- Media-Only: file/picture only enforcement ----------
     // Runs before auto-react so text in media-only never slips through.
     try {

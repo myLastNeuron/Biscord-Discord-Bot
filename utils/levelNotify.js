@@ -43,7 +43,7 @@ async function notifyLevelUp({ member, channel, client, newLevel, levelName, tot
     .addFields(
       { name: 'Total XP', value: `\`${totalXp.toLocaleString()}\``, inline: true },
       { name: 'New Level', value: `\`${newLevel}\``, inline: true },
-      { name: 'Rank Title', value: `\`${levelName}\``, inline: true },
+      { name: 'Level Title', value: `\`${levelName}\``, inline: true },
     )
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
     .setTimestamp();

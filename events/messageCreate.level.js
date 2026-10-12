@@ -4,7 +4,7 @@
  * Grants XP on messages, respects cooldown, fires level-up notification.
  */
 
-const { getSettings, getUser, awardXP, setLastMessage } = require('../utils/levelStore');
+const { getSettings, getUser, awardXP, setLastMessage, incrementMessageCount } = require('../utils/levelStore');
 const { getGuildSettings } = require('../utils/db');
 const { notifyLevelUp } = require('../utils/levelNotify');
 
@@ -16,6 +16,11 @@ module.exports = {
 
     const guildSettings = getGuildSettings(message.guild.id);
     if (guildSettings.botEnabled === false) return; // maintenance mode
+
+    // Count every chat message, independent of the XP cooldown below.
+    // ponytail: only counts while this level handler runs; move to messageCreate.js
+    // if counts must survive the level system being switched off.
+    if (message.content) incrementMessageCount(message.guild.id, message.author.id);
 
     const settings = getSettings(message.guild.id);
     if (settings.enabled === false) return; // level system turned off
