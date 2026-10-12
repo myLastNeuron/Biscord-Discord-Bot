@@ -4,7 +4,7 @@
 
 **An all-in-one, self-hosted Discord bot for communities that want moderation, events and a live control panel — without standing up a database.**
 
-Moderation · Event Rosters · Giveaways · Polls · Live Dashboard · TTS · Voice Tools · Levels · Tickets
+Moderation · Event Rosters · Giveaways · Polls · Music · TTS · Voice Tools · Levels · Tickets
 
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.17-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge&logo=discord&logoColor=white)
@@ -36,7 +36,7 @@ Most "all-in-one" bots either charge a subscription or dump your data on someone
 
 | 🧩 Commands | 🗂️ Feature modules | 🗄️ Database | 🗣️ TTS | 🛡️ Supervision |
 |:---:|:---:|:---:|:---:|:---:|
-| **46** slash commands | **23** | **none** — plain JSON | live + file TTS | crash auto-restart |
+| **61** commands | **24** | **none** — plain JSON | live + file TTS | crash auto-restart |
 
 ---
 
@@ -102,6 +102,7 @@ Everything below is included — nothing is behind a paywall.
 | 📅 **Event Rosters** | Reaction/button sign-up panels with main + sub slots, auto-lock, attendance stats |
 | 🎁 **Giveaways** | Timed giveaways with a join button, instant end, and winner re-rolls |
 | 📊 **Polls** | Multi-option polls with live results |
+| 🎵 **Music** | Queue-based playback from YouTube/URLs with a button player (volume, loop, shuffle, seek) plus `!p` / `!skip` / `!np` prefix shortcuts |
 | 🔊 **Voice Tools** | Keep-alive VC connection, VC member list, join/leave logging, join notifications |
 | 🗣️ **TTS** | Text-to-speech files and real-time "read this channel aloud" |
 | 🧩 **Embeds** | A visual embed builder with saved, reusable templates |
@@ -115,7 +116,7 @@ Everything below is included — nothing is behind a paywall.
 
 ## 📜 Command Reference
 
-All **44** top-level slash commands, grouped by module. Expand a section to see its commands.
+All **60** top-level slash commands, grouped by module. Expand a section to see its commands. (Music and `/xp` also work as `!` prefix commands.)
 
 <details>
 <summary><b>🛡️ Moderation</b> — 10 commands</summary>
@@ -173,6 +174,28 @@ All **44** top-level slash commands, grouped by module. Expand a section to see 
 </details>
 
 <details>
+<summary><b>🎵 Music</b> — 15 commands (+ <code>!</code> prefix shortcuts)</summary>
+
+| Command | Description |
+|---------|-------------|
+| `/play <query>` | Play a song name or URL · prefix `!p` |
+| `/pause` · `/resume` | Pause / resume playback · prefix `!pause` / `!resume` |
+| `/skip` | Skip the current track · prefix `!skip` / `!next` |
+| `/stop` | Stop, clear the queue, and leave voice · prefix `!stop` / `!s` |
+| `/nowplaying` | Show the current track · prefix `!np` |
+| `/queue` | Show the queue · prefix `!queue` / `!q` |
+| `/loop <off\|track\|queue>` | Set the loop mode · prefix `!loop` / `!lp` |
+| `/disconnect` | Leave the voice channel · prefix `!dc` / `!leave` |
+| `/shuffle` | Shuffle the queue |
+| `/volume <percent>` | Change the playback volume |
+| `/seek <time>` | Jump to a timestamp |
+| `/jump <position>` | Jump to a queue position |
+| `/remove <position>` | Remove a track from the queue |
+| `/clear` | Clear the queue but keep playing |
+
+</details>
+
+<details>
 <summary><b>🔊 Voice Tools</b></summary>
 
 | Command | Description |
@@ -213,7 +236,8 @@ All **44** top-level slash commands, grouped by module. Expand a section to see 
 | Command | Description |
 |---------|-------------|
 | `/panel-levels` | Configure the level system from the dashboard |
-| `/rank` · `/leaderboard` | Show a member's rank / the server leaderboard |
+| `/xp [user]` | Show your level & XP card, or another member's · prefix `!xp` |
+| `/leaderboard` | The server's top leveled members |
 | `/give-xp` · `/cheat-level` · `/reset-level` | Admin XP and level tools |
 
 </details>
@@ -323,7 +347,8 @@ The `.env` file, runtime data in `data/`, and all logs are excluded from version
 │   ├── Moderation/        ban, kick, timeout, warnings, purge, lockdown…
 │   ├── Events/            roster panels, autopost, attendance stats
 │   ├── Giveaways/         giveaway lifecycle
-│   ├── Levels/            xp, rank, leaderboard, panel
+│   ├── Music/             queue playback + button player
+│   ├── Levels/            xp, leaderboard, panel
 │   ├── Dashboard/         the /panel control centre
 │   └── …                  AutoReact, Polls, Tickets, TTS, Voice*, Welcome…
 ├── events/                Discord.js event handlers (messageCreate, voiceStateUpdate…)
@@ -424,15 +449,7 @@ Released under the [Apache License 2.0](LICENSE.md).
 
 > [!CAUTION]
 > ### 🤖 Mostly AI-generated — use at your own risk
->
-> I built this bot mostly with AI, as a personal project to understand how AI works and what it can actually do. It is not a professional piece of software, and it has had only a single security pass ([SECURITY_AUDIT.md](SECURITY_AUDIT.md)).
->
-> - **Assume there are loopholes, bugs and rough edges.** Some of them I know about, plenty I don't.
-> - **One security review has been done — not a hardening programme.** The report is public, but a single pass does not make this safe. Be careful about what you sign in to or store in it.
-> - **No warranty of any kind**, in the spirit of the Apache-2.0 license. You use it at your own risk.
-> - **It's a learning project first, a Discord bot second.** If something breaks, that's the trade-off.
->
-> Treat it as a curious experiment you're welcome to play with — not as software to depend on.
+> Built mostly with AI as a learning project, with a single security pass ([SECURITY_AUDIT.md](SECURITY_AUDIT.md)). Expect bugs and rough edges — one review isn't a hardening programme. No warranty (Apache-2.0); use it at your own risk.
 
 <div align="center">
 
