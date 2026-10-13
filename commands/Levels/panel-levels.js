@@ -72,7 +72,7 @@ function mainMenuRow(guildId) {
     new ButtonBuilder().setCustomId('lp_xp_settings').setLabel('XP Settings').setStyle(ButtonStyle.Primary).setEmoji('📈'),
     new ButtonBuilder().setCustomId('lp_levels').setLabel('Level Manager').setStyle(ButtonStyle.Primary).setEmoji('🏆'),
     new ButtonBuilder().setCustomId('lp_notify').setLabel('Notifications').setStyle(ButtonStyle.Primary).setEmoji('🔔'),
-    new ButtonBuilder().setCustomId('lp_toggle_enabled').setLabel(enabled ? 'Turn OFF Level System' : 'Turn ON Level System').setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success).setEmoji('⏻'),
+    new ButtonBuilder().setCustomId('lp_toggle_enabled').setLabel(enabled ? 'Turn OFF Level System' : 'Turn ON Level System').setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success).setEmoji('⚡'),
     new ButtonBuilder().setCustomId('lp_overview').setLabel('Refresh').setStyle(ButtonStyle.Secondary).setEmoji('🔄'),
   );
 }
