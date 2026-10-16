@@ -1,5 +1,6 @@
 .env
 node_modules/
+bin/
 data/*.json
 data/*.tmp-*
 data/logs/

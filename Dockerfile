@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install dependencies first so this layer is cached when only source changes.
 # --ignore-scripts skips the postinstall binary downloads; run.js's ensure-deps
-# bootstrap fetches the correct ffmpeg binary for the container's
+# bootstrap fetches the correct ffmpeg + yt-dlp binaries for the container's
 # platform on first start.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund

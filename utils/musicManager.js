@@ -8,10 +8,13 @@
 // Pipeline per track:  yt-dlp -f bestaudio -o -  |  ffmpeg -> s16le 48k stereo
 // -> createAudioResource(StreamType.Raw) -> AudioPlayer -> voice connection.
 //
-// yt-dlp is expected on PATH; override with YTDLP_PATH. If it's missing every
-// play fails with a clear message instead of a silent no-op.
+// yt-dlp is auto-downloaded into ./bin by scripts/ensure-deps.js at startup;
+// override with YTDLP_PATH (a PATH install is used as a last resort). If it's
+// missing every play fails with a clear message instead of a silent no-op.
 
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const {
   joinVoiceChannel,
   getVoiceConnection,
@@ -34,7 +37,18 @@ const MUSIC_COLORS = {
   stop: 0xED4245,   // clean red
 };
 
-const YTDLP = process.env.YTDLP_PATH || 'yt-dlp';
+const YTDLP = resolveYtDlp();
+
+// Resolution order: explicit env override → the binary that
+// scripts/ensure-deps.js downloads into ./bin at startup → whatever `yt-dlp`
+// resolves to on PATH.
+function resolveYtDlp() {
+  const override = (process.env.YTDLP_PATH || '').trim();
+  if (override) return override;
+  const bundled = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+  if (fs.existsSync(bundled)) return bundled;
+  return 'yt-dlp';
+}
 
 let FFMPEG = 'ffmpeg';
 try {
