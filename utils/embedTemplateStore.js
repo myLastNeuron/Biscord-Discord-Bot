@@ -68,7 +68,6 @@ function listTemplateNames(guildId) {
 }
 
 module.exports = {
-  getGuildTemplates,
   getTemplate,
   saveTemplate,
   deleteTemplate,

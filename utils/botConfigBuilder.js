@@ -95,4 +95,4 @@ function buildBotConfigPayload(config, client, prefix = 'botconfig') {
   };
 }
 
-module.exports = { buildBotConfigEmbed, buildBotConfigComponents, buildBotConfigPayload };
+module.exports = { buildBotConfigPayload };

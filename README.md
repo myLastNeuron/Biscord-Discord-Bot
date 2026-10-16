@@ -98,7 +98,7 @@ Everything below is included — nothing is behind a paywall.
 
 | Module | What it does |
 |---|---|
-| 🛡️ **Moderation** | Ban, kick, timeout, warn, purge, channel lock, media-only channels, server-wide lockdown |
+| 🛡️ **Moderation** | Ban, kick, timeout, warn, purge, slowmode, unban, channel lock, media-only channels, server-wide lockdown |
 | 📅 **Event Rosters** | Reaction/button sign-up panels with main + sub slots, auto-lock, attendance stats |
 | 🎁 **Giveaways** | Timed giveaways with a join button, instant end, and winner re-rolls |
 | 📊 **Polls** | Multi-option polls with live results |
@@ -109,17 +109,17 @@ Everything below is included — nothing is behind a paywall.
 | 🏆 **Levels** | XP from messages, voice, reactions; custom level roles and leaderboards |
 | 🎟️ **Tickets** | Support ticket panels with transcripts and staff roles — optional named ticket types (e.g. Help Hand) that users pick from a dropdown, with the channel auto-named `username-type` |
 | 📨 **Invite Tracking** | Who invited whom, with leaderboards and rejoin/leave accounting |
-| 🪪 **Member Tools** | `/profile` for avatar, join date and account age; `/love` for a playful randomized compatibility score |
+| 🪪 **Member Tools** | `/userinfo`, `/serverinfo`, `/avatar` and `/roleinfo` for member/server/role lookups; `/profile` for avatar, join date and account age; `/love` for a playful randomized compatibility score |
 | 🛠️ **Live Dashboard** | One `/panel` for config, plus auto-refreshing status embeds and stat channels |
 
 ---
 
 ## 📜 Command Reference
 
-All **60** top-level slash commands, grouped by module. Expand a section to see its commands. (Music and `/xp` also work as `!` prefix commands.)
+All **67** top-level slash commands, grouped by module. Expand a section to see its commands. (Music and `/xp` also work as `!` prefix commands.)
 
 <details>
-<summary><b>🛡️ Moderation</b> — 10 commands</summary>
+<summary><b>🛡️ Moderation</b> — 12 commands</summary>
 
 | Command | Description |
 |---------|-------------|
@@ -129,6 +129,8 @@ All **60** top-level slash commands, grouped by module. Expand a section to see 
 | `/untimeout` | Remove an active timeout |
 | `/warn` | Issue a warning to a member |
 | `/warnings` | View, list, or clear member warnings |
+| `/slowmode` | Set a channel's slowmode, or turn it off with 0 |
+| `/unban` | Unban a user by their ID, with an optional reason |
 | `/purge` | Bulk delete recent messages (1–100) |
 | `/channel-lock` | Lock/unlock a text channel |
 | `/media-only` | Make a channel file/picture only, with auto-delete + auto-warn |
@@ -257,6 +259,10 @@ All **60** top-level slash commands, grouped by module. Expand a section to see 
 | `/schedule` | Schedule a message for a future time |
 | `/bot-config` | Edit the bot's status, avatar, and username |
 | `/profile` | Show a member's avatar, join age, and Discord account age |
+| `/userinfo` | Show a member's ID, nickname, roles, join date, and account age |
+| `/serverinfo` | Show server details — owner, members, channels, roles, boosts |
+| `/avatar` | Show a member's avatar in full size, with a download link |
+| `/roleinfo` | Inspect a role — colour, position, member count, and flags |
 | `/love` | Playful randomized compatibility score between two members |
 | `/help` | See every command and feature |
 | `/monopoly` | Create a Monopoly room on Aspal.io |

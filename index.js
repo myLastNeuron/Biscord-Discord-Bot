@@ -32,11 +32,20 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,      // needed for welcomer + moderation member fetches
     GatewayIntentBits.GuildPresences,    // needed for online/idle/DND status (server-status command)
     GatewayIntentBits.GuildMessages,     // needed for purge
+    GatewayIntentBits.GuildMessageReactions, // needed for reaction-role grants + reaction XP (MESSAGE_REACTION_ADD/REMOVE)
     GatewayIntentBits.GuildVoiceStates,  // needed for temp voice channels (join/leave/move events)
     GatewayIntentBits.GuildBans,         // needed for audit log: ban/unban events
     GatewayIntentBits.MessageContent,    // required: auto-react/auto-delete/reply-back matching, media-only enforcement
   ],
-  partials: [Partials.GuildMember, Partials.User],
+  partials: [
+    Partials.GuildMember,
+    Partials.User,
+    // Needed so reaction-role grants still fire after a restart, when the
+    // reacted message/reaction isn't in cache (see utils/reactionRoleHandler.js).
+    Partials.Message,
+    Partials.Reaction,
+    Partials.Channel,
+  ],
 });
 
 // Initialize centralized error handling (process guards + interaction handler)
@@ -45,23 +54,12 @@ initErrorHandler(client);
 client.commands = new Collection();
 
 // ---------- Load commands recursively from /commands ----------
-// Some helper/utility modules live alongside real commands in commands/
-// subfolders (e.g. autoReactStore.js, moderationBuilder.js, theme.js).
-// They don't export data/execute on purpose — list them here so the loader
-// skips them silently instead of logging a false-positive warning.
-const NON_COMMAND_FILES = new Set([
-  'autoReactStore.js',
-  'moderationBuilder.js',
-  'theme.js',
-]);
-
 function loadCommands(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       loadCommands(fullPath);
     } else if (entry.name.endsWith('.js')) {
-      if (NON_COMMAND_FILES.has(entry.name)) continue;
       const command = require(fullPath);
       if (command?.data?.name && typeof command.execute === 'function') {
         client.commands.set(command.data.name, command);

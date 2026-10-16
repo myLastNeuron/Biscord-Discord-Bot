@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { clearGuildRules: clearAutoReactRules } = require('./autoReactStore');
+const { clearGuildMappings: clearReactionRoles } = require('./reactionRoleStore');
 const { clearSettings: clearTempVcSettings } = require('./tempVcStore');
 
 const { DATA_DIR, writeJsonAtomic } = require('./safeFile');
@@ -318,6 +319,7 @@ function resetEverythingForGuild(guildId) {
   }
 
   clearAutoReactRules(guildId);
+  clearReactionRoles(guildId);
   clearTempVcSettings(guildId);
 
   return settings;
@@ -357,11 +359,6 @@ function getScheduledEvents() {
   return _read('scheduled');
 }
 
-function getScheduledEvent(token) {
-  const all = _read('scheduled');
-  return all[token] || null;
-}
-
 function saveScheduledEvent(token, eventData) {
   const all = _readMutable('scheduled');
   all.set(token, eventData);
@@ -373,13 +370,6 @@ function deleteScheduledEvent(token) {
   const all = _readMutable('scheduled');
   all.delete(token);
   _write('scheduled', Object.fromEntries(all));
-}
-
-function listScheduledEvents(guildId) {
-  const all = _read('scheduled');
-  return Object.entries(all)
-    .filter(([, ev]) => ev.guildId === guildId)
-    .map(([token, ev]) => ({ token, ...ev }));
 }
 
 function getScheduledMessages() {
@@ -734,12 +724,6 @@ function removeJoinInviter(guildId, memberId) {
   }
 }
 
-function resetInviteStats(guildId, userId) {
-  const data = _getGuildInviteData(guildId);
-  delete data.stats[userId];
-  _setGuildInviteData(guildId, data);
-}
-
 function resetAllInviteStats(guildId) {
   _setGuildInviteData(guildId, { stats: {}, joins: {} });
 }
@@ -759,10 +743,8 @@ module.exports = {
   listEvents,
   listAllEvents,
   getScheduledEvents,
-  getScheduledEvent,
   saveScheduledEvent,
   deleteScheduledEvent,
-  listScheduledEvents,
   getScheduledMessages,
   saveScheduledMessage,
   deleteScheduledMessage,
@@ -807,6 +789,5 @@ module.exports = {
   recordJoinInviter,
   getJoinInviter,
   removeJoinInviter,
-  resetInviteStats,
   resetAllInviteStats,
 };

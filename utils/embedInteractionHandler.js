@@ -11,6 +11,7 @@ const {
   buildStyleSelectMenu,
   buildButtonManageSelect,
   buildReactionManageSelect,
+  buildReactionRoleManageSelect,
   buildTicketTypeManageSelect,
   BUTTON_STYLES,
   cid,
@@ -18,6 +19,8 @@ const {
 } = require('./embedBuilder');
 const sessionStore = require('./embedSessionStore');
 const templateStore = require('./embedTemplateStore');
+const reactionRoleStore = require('./reactionRoleStore');
+const { parseEmojiList } = require('./autoReactMatcher');
 const { setGuildSettings } = require('./db');
 
 const {
@@ -169,6 +172,10 @@ async function handleEmbedInteractionInner(interaction) {
       await interaction.showModal(buildModal('add_reaction', session));
       return true;
     }
+    if (value === 'reaction_role') {
+      await showRoleSelectForReactionRole(interaction, session);
+      return true;
+    }
     if (value === 'ticket_type') {
       await interaction.showModal(buildModal('add_ticket_type', session));
       return true;
@@ -189,6 +196,10 @@ async function handleEmbedInteractionInner(interaction) {
     }
     if (value === 'reactions') {
       await showReactionManager(interaction, session);
+      return true;
+    }
+    if (value === 'reaction_roles') {
+      await showReactionRoleManager(interaction, session);
       return true;
     }
     if (value === 'ticket_types') {
@@ -212,6 +223,16 @@ async function handleEmbedInteractionInner(interaction) {
     });
     // Just show the modal - the user knows which role they selected
     await interaction.showModal(buildModal('add_role_button', session));
+    return true;
+  }
+
+  // ---- Role select for a reaction role (emoji → role) ----
+  if (interaction.isRoleSelectMenu() && customId === `${CID}:rr_role_select`) {
+    const roleId = interaction.values[0];
+    sessionStore.updateSession(session, (s) => {
+      s._pendingReactionRole = { roleId };
+    });
+    await interaction.showModal(buildModal('add_reaction_role', session));
     return true;
   }
 
@@ -260,6 +281,21 @@ async function handleEmbedInteractionInner(interaction) {
       await showReactionManager(interaction, newSession);
     } else {
       await refreshPanel(interaction, newSession);
+    }
+    return true;
+  }
+
+  // ---- Reaction role manage select ----
+  if (interaction.isStringSelectMenu() && customId === `${CID}:reaction_role_manage_select`) {
+    const idx = parseInt(interaction.values[0], 10);
+    sessionStore.updateSession(session, (s) => {
+      if (s.draft.reactionRoles) s.draft.reactionRoles.splice(idx, 1);
+    });
+    await interaction.deferUpdate();
+    if (session.draft.reactionRoles?.length > 0) {
+      await showReactionRoleManager(interaction, session);
+    } else {
+      await refreshPanel(interaction, session);
     }
     return true;
   }
@@ -335,6 +371,13 @@ async function handleEmbedInteractionInner(interaction) {
   }
 
   if (interaction.isButton() && customId === `${CID}:sendnow`) {
+    if (session.purpose === 'reactrole' && !(session.draft.reactionRoles?.length)) {
+      await interaction.reply({
+        content: 'Add at least one reaction role (emoji → role) before sending.',
+        ephemeral: true,
+      });
+      return true;
+    }
     await interaction.deferUpdate();
     await sendDraft(interaction, session);
     return true;
@@ -452,6 +495,40 @@ async function showReactionManager(interaction, session) {
   );
   await interaction.update({
     content: '**Select a reaction to remove:**',
+    embeds: [],
+    components: [selectRow, backButton],
+  });
+}
+
+async function showRoleSelectForReactionRole(interaction, session) {
+  const row = buildRoleSelectMenu(cid(session, 'rr_role_select'));
+  const cancelButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(cid(session, 'button_back'))
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  await interaction.update({
+    content: '**Select the role this reaction should grant:**',
+    embeds: [],
+    components: [row, cancelButton],
+  });
+}
+
+async function showReactionRoleManager(interaction, session) {
+  const selectRow = buildReactionRoleManageSelect(session);
+  if (!selectRow) {
+    await interaction.reply({ content: 'No reaction roles to manage.', ephemeral: true });
+    return;
+  }
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(cid(session, 'button_back'))
+      .setLabel('Back')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  await interaction.update({
+    content: '**Select a reaction role to remove:**',
     embeds: [],
     components: [selectRow, backButton],
   });
@@ -577,6 +654,30 @@ async function handleModalSubmit(interaction, kind, session) {
       case 'add_reaction': {
         const emoji = f('emoji');
         if (emoji) d.reactions.push(emoji);
+        break;
+      }
+      case 'add_reaction_role': {
+        const pending = s._pendingReactionRole;
+        const roleId = pending?.roleId;
+        if (!roleId) {
+          buttonRejected = 'No role selected. Please pick a role first.';
+          break;
+        }
+        const parsed = parseEmojiList(f('emoji') || '')[0];
+        if (!parsed) {
+          buttonRejected = "That doesn't look like an emoji.";
+          break;
+        }
+        if (!s.draft.reactionRoles) s.draft.reactionRoles = [];
+        if (s.draft.reactionRoles.length >= 20) {
+          buttonRejected = 'Discord allows at most 20 reactions on a single message.';
+          break;
+        }
+        // emojiKey is the numeric ID for a custom emoji or the unicode character
+        // itself — the exact reduction the reaction event matches against (see
+        // reactionRoleHandler.js). emojiRaw is kept for display / re-reacting.
+        s.draft.reactionRoles.push({ emojiRaw: parsed.raw, emojiKey: parsed.value, roleId });
+        s._pendingReactionRole = null;
         break;
       }
       case 'add_ticket_type': {
@@ -718,11 +819,17 @@ async function handleModalSubmit(interaction, kind, session) {
 async function sendDraft(interaction, session) {
   const embed = buildEmbedFromDraft(session.draft);
   const buttonRows = buildLiveButtonRows(session.draft.buttons);
+  const reactionRoles = session.draft.reactionRoles || [];
 
   const channel = await interaction.client.channels.fetch(session.channelId);
   const sentMessage = await channel.send({ embeds: [embed], components: buttonRows });
 
-  for (const emoji of session.draft.reactions) {
+  // Both the plain (cosmetic) reactions and every reaction-role emoji are added
+  // by the bot, once, right after the message is posted. React with emojiRaw
+  // (the full <:name:id> token / unicode char) — react() needs the tag form for
+  // custom emojis, not a bare ID.
+  const emojisToReact = [...session.draft.reactions, ...reactionRoles.map((rr) => rr.emojiRaw)];
+  for (const emoji of emojisToReact) {
     try {
       await sentMessage.react(emoji);
     } catch (err) {
@@ -730,9 +837,21 @@ async function sendDraft(interaction, session) {
     }
   }
 
+  // Bind the message so the reaction events can resolve emoji → role later.
+  if (session.purpose === 'reactrole' && reactionRoles.length) {
+    reactionRoleStore.saveMapping(sentMessage.id, {
+      guildId: session.guildId,
+      channelId: sentMessage.channelId,
+      toggleOnRemove: true,
+      mappings: reactionRoles,
+    });
+  }
+
   sessionStore.deleteSession(session);
   await interaction.editReply({
-    content: `Sent to <#${session.channelId}>.`,
+    content: session.purpose === 'reactrole'
+      ? `Posted the reaction-role message in <#${session.channelId}>. Members can now react to get their role.`
+      : `Sent to <#${session.channelId}>.`,
     embeds: [],
     components: [],
   });

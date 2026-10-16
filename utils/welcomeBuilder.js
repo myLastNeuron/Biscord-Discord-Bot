@@ -71,4 +71,4 @@ function buildWelcomeButtons(settings) {
   return buildLiveButtonRows(settings.welcomeEmbedDraft.buttons || []);
 }
 
-module.exports = { buildWelcomeEmbed, buildWelcomeButtons, fillPlaceholders };
+module.exports = { buildWelcomeEmbed, buildWelcomeButtons };

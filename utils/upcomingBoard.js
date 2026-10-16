@@ -121,4 +121,4 @@ function startUpcomingBoardRefresher(client) {
   }, REFRESH_INTERVAL_MS);
 }
 
-module.exports = { buildUpcomingBoardEmbed, buildUpcomingBoardComponents, refreshUpcomingBoard, startUpcomingBoardRefresher };
+module.exports = { refreshUpcomingBoard, startUpcomingBoardRefresher };

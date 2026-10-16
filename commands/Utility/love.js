@@ -30,6 +30,10 @@ module.exports = {
     const one = interaction.options.getUser('user1');
     const two = interaction.options.getUser('user2');
 
+    if (one.id === two.id) {
+      return interaction.reply({ content: "You can't ship someone with themselves. Pick two different members. 💔", ephemeral: true });
+    }
+
     // Totally random each run — deliberately not seeded, so re-running rerolls.
     const pct = Math.floor(Math.random() * 101); // 0–100 inclusive
     const { emoji, text } = verdict(pct);

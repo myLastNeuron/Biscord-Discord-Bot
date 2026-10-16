@@ -28,6 +28,7 @@ function blankDraft() {
     timestamp: false,
     reactions: [],
     buttons: [], // { type: 'link'|'role', label, style, emoji, url?, roleId? }
+    reactionRoles: [], // { emojiRaw, emojiKey, roleId } — emoji reaction grants role (see reactionRoleStore.js)
   };
 }
 
@@ -71,7 +72,7 @@ function createSession(userId, {
     // posting a message.
     purpose,
     panelMessageId: null,
-    draft: existingDraft ? structuredCloneSafe(existingDraft) : blankDraft(),
+    draft: existingDraft ? structuredClone(existingDraft) : blankDraft(),
     // If set, the builder will EDIT this message instead of sending a new one.
     editMessageId,
     editChannelId,
@@ -84,10 +85,6 @@ function createSession(userId, {
   sessions.set(key, session);
   sessionsByToken.set(token, session);
   return session;
-}
-
-function structuredCloneSafe(obj) {
-  return JSON.parse(JSON.stringify(obj));
 }
 
 // Resolves the session a builder customId belongs to (token embedded in the id).

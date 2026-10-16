@@ -130,7 +130,6 @@ async function announceInChannel(client, giveaway, content) {
 }
 
 module.exports = {
-  drawWinners,
   createAndPostGiveaway,
   finalizeGiveaway,
   rerollGiveaway,

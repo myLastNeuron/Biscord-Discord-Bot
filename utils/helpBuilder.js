@@ -33,6 +33,8 @@ const HELP_CATEGORIES = [
       { name: '/purge', desc: 'Bulk-delete up to 100 messages, or just one user\'s.' },
       { name: '/warn', desc: 'Issue a warning, logged to the mod log.' },
       { name: '/warnings', desc: 'List everyone\'s warnings, view one member\'s, or clear them.' },
+      { name: '/slowmode', desc: 'Set a channel\'s slowmode, or turn it off with 0.' },
+      { name: '/unban', desc: 'Unban a user by ID, with an optional reason.' },
     ],
   },
   {
@@ -150,6 +152,10 @@ const HELP_CATEGORIES = [
     blurb: 'Handy member tools.',
     commands: [
       { name: '/profile', desc: 'Show a member\'s avatar, how long they\'ve been here, and their account age.' },
+      { name: '/userinfo', desc: 'A member\'s full card — ID, roles, join date, and account age.' },
+      { name: '/serverinfo', desc: 'A snapshot of this server — owner, members, channels, boosts, and more.' },
+      { name: '/avatar', desc: 'Show a member\'s avatar in full size, with a download link.' },
+      { name: '/roleinfo', desc: 'Inspect a role — colour, position, member count, and flags.' },
       { name: '/love', desc: 'Calculate a playful compatibility score between two members.' },
     ],
   },
@@ -229,7 +235,6 @@ function buildHelpCategoryComponents(categoryKey) {
 }
 
 module.exports = {
-  HELP_CATEGORIES,
   getHelpCategory,
   buildHelpOverviewEmbed,
   buildHelpOverviewComponents,

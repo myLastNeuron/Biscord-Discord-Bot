@@ -74,7 +74,6 @@ function clearGuildRules(guildId) {
 }
 
 module.exports = {
-  getGuildRules,
   listRules,
   addRule,
   removeRule,

@@ -33,10 +33,6 @@ function endSession(guildId, userId) {
   return { durationMs: Date.now() - session.startedAt, channelName: session.channelName };
 }
 
-function hasSession(guildId, userId) {
-  return _guildMap(guildId).has(userId);
-}
-
 // e.g. 12m 34s / 1h 04m / 45s
 function formatDuration(ms) {
   const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -49,4 +45,4 @@ function formatDuration(ms) {
   return `${seconds}s`;
 }
 
-module.exports = { startSession, updateChannel, endSession, hasSession, formatDuration };
+module.exports = { startSession, updateChannel, endSession, formatDuration };

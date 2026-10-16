@@ -86,7 +86,6 @@ function createLogger(defaultTag) {
 }
 
 module.exports = {
-  LEVELS,
   createLogger,
   // Global helpers for quick one-offs without creating a logger
   debug: (tag, msg, meta) => log('debug', tag, msg, meta),

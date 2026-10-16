@@ -86,4 +86,4 @@ function buildPollComponents(poll) {
   return rows;
 }
 
-module.exports = { buildPollEmbed, buildPollComponents, totalVoteCount };
+module.exports = { buildPollEmbed, buildPollComponents };

@@ -388,7 +388,5 @@ module.exports = {
   stop,
   enqueue,
   queueTestLine,
-  pump,
   handleVoiceStateUpdate,
-  MAX_QUEUE,
 };

@@ -109,6 +109,5 @@ function init(client) {
 module.exports = {
   init,
   handleInteractionError,
-  fatalExit,
   gracefulShutdown,
 };

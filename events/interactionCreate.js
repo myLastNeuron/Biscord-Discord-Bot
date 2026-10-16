@@ -1,11 +1,8 @@
+const { Events } = require('discord.js');
 const {
-  Events,
-  PermissionFlagsBits,
-} = require('discord.js');
-const {
-  getEvent, saveEvent, saveScheduledEvent,
+  saveEvent, saveScheduledEvent,
   saveAutopostRoster,
-  getGuildSettings, setGuildSettings,
+  getGuildSettings,
 } = require('../utils/db');
 const { buildRosterEmbed, buildRosterButtons } = require('../utils/rosterBuilder');
 const { refreshUpcomingBoard } = require('../utils/upcomingBoard');
@@ -31,95 +28,6 @@ const { handleInteractionError } = require('../utils/errorHandler');
 // If the requested time is less than this far in the future, just post immediately
 // instead of scheduling — avoids a pointless near-instant "wait" for a few seconds.
 const IMMEDIATE_THRESHOLD_MS = 15 * 1000;
-
-// ---------- Role request config ----------
-// Channel where Approve/Reject requests are reviewed by admins/HC.
-// Falls back to null (not configured) if admins haven't set these via /panel.
-const ROLE_REQUEST_LOG_CHANNEL_ID = null;
-// Role handed out automatically when a request is approved.
-const ROLE_REQUEST_APPROVE_ROLE_ID = null;
-
-// Returns the review/log channel for role requests: whatever admins set via
-// /panel > Role Request Settings, falling back to the hardcoded default above
-// if they've never touched it.
-function getRoleRequestLogChannelId(guildId) {
-  const settings = getGuildSettings(guildId);
-  return settings.roleRequestLogChannelId || ROLE_REQUEST_LOG_CHANNEL_ID;
-}
-
-// Same idea, for the role granted on approval.
-function getRoleRequestApproveRoleId(guildId) {
-  const settings = getGuildSettings(guildId);
-  return settings.roleRequestApproveRoleId || ROLE_REQUEST_APPROVE_ROLE_ID;
-}
-
-// ---------- Ticket system config ----------
-// Category new ticket channels get created under.
-// Falls back to null (not configured) if admins haven't set these via /panel.
-const TICKET_CATEGORY_ID = null;
-// Role that can see/reply to every ticket, in addition to the person who opened it.
-const TICKET_STAFF_ROLE_ID = null;
-
-// Returns the ticket category: whatever's set via /panel > Ticket Settings,
-// falling back to the hardcoded default if admins haven't touched it.
-function getTicketCategoryId(guildId) {
-  const settings = getGuildSettings(guildId);
-  return settings.ticketCategoryId || TICKET_CATEGORY_ID;
-}
-
-// Same idea, for the staff role that can see tickets.
-function getTicketStaffRoleId(guildId) {
-  const settings = getGuildSettings(guildId);
-  return settings.ticketStaffRoleId || TICKET_STAFF_ROLE_ID;
-}
-
-// Pages through every message in a ticket channel (oldest first) and returns
-// a plain-text transcript as a Buffer, ready to attach to a message.
-async function buildTicketTranscript(channel) {
-  const allMessages = [];
-  let lastId;
-
-  // Discord only returns 100 messages per call, so keep paging backwards
-  // (using `before`) until there's nothing left to fetch.
-  while (true) {
-    const options = { limit: 100 };
-    if (lastId) options.before = lastId;
-    const batch = await channel.messages.fetch(options);
-    if (batch.size === 0) break;
-    allMessages.push(...batch.values());
-    lastId = batch.last().id;
-    if (batch.size < 100) break;
-  }
-
-  allMessages.reverse(); // oldest -> newest, readable order
-
-  const lines = allMessages.map((m) => {
-    const time = new Date(m.createdTimestamp).toISOString();
-    const attachmentUrls = m.attachments.size ? ` [attachments: ${[...m.attachments.values()].map((a) => a.url).join(', ')}]` : '';
-    const content = m.content || (m.embeds.length ? '[embed]' : '');
-    return `[${time}] ${m.author.tag}: ${content}${attachmentUrls}`;
-  });
-
-  return Buffer.from(lines.length ? lines.join('\n') : 'No messages were sent in this ticket.', 'utf8');
-}
-
-// Returns true if the member is allowed to Approve/Reject role requests.
-// Uses the mod roles configured in /panel if any are set; otherwise falls
-// back to requiring Manage Roles so this never accidentally opens up to everyone.
-function canReviewRoleRequests(interaction) {
-  const settings = getGuildSettings(interaction.guild.id);
-  const modRoleIds = settings.modRoleIds || [];
-  if (modRoleIds.length > 0) {
-    return interaction.member.roles.cache.some((role) => modRoleIds.includes(role.id));
-  }
-  return interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles);
-}
-
-// Same permission model as role requests (configured Mod Roles, falling back
-// to Manage Roles) - reused for approving/rejecting Reaction Approval requests.
-function canReviewReactionApprovals(interaction) {
-  return canReviewRoleRequests(interaction);
-}
 
 module.exports = {
   name: Events.InteractionCreate,

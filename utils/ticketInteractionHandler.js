@@ -331,4 +331,4 @@ async function handleTicketInteraction(interaction) {
   return false;
 }
 
-module.exports = { handleTicketInteraction, buildTicketTypeMenu, ticketChannelName };
+module.exports = { handleTicketInteraction, buildTicketTypeMenu };

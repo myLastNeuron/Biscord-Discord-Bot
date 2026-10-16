@@ -103,6 +103,7 @@ function draftFromEmbed(apiEmbed, components = []) {
     timestamp: !!apiEmbed.timestamp,
     reactions: [], // reactions can't be read back from the API in a useful way
     buttons: [],
+    reactionRoles: [], // not reconstructable from a sent message; re-add via /react-role-setup
   };
 
   // Reconstruct buttons from the message's component rows.
@@ -240,6 +241,7 @@ function buildPanelComponents(session) {
   const hasFields = session.draft.fields.length > 0;
   const hasReactions = session.draft.reactions.length > 0;
   const hasButtons = session.draft.buttons.length > 0;
+  const hasReactionRoles = (session.draft.reactionRoles?.length || 0) > 0;
   const isEditSession = !!session.editMessageId;
 
   const contentSelect = new StringSelectMenuBuilder()
@@ -261,6 +263,9 @@ function buildPanelComponents(session) {
       { label: 'Add a Link Button', value: 'link', emoji: '🔗' },
       { label: 'Add a Role Button', value: 'role', emoji: '🏷️' },
       { label: 'Add a Reaction (auto-reacted)', value: 'reaction', emoji: '😀' },
+      ...(session.purpose === 'reactrole'
+        ? [{ label: 'Add a Reaction Role (emoji → role)', value: 'reaction_role', emoji: '🎭' }]
+        : []),
       ...(session.purpose === 'ticket:panel'
         ? [{ label: 'Add a Ticket Type', value: 'ticket_type', emoji: '🎫' }]
         : []),
@@ -271,6 +276,7 @@ function buildPanelComponents(session) {
     hasFields ? { label: 'Edit / Remove Fields', value: 'fields', emoji: '📋' } : null,
     hasButtons ? { label: 'Edit / Remove Buttons', value: 'buttons', emoji: '🔘' } : null,
     hasReactions ? { label: 'Remove Reactions', value: 'reactions', emoji: '😀' } : null,
+    hasReactionRoles ? { label: 'Remove Reaction Roles', value: 'reaction_roles', emoji: '🎭' } : null,
     hasTicketTypes ? { label: 'Remove Ticket Types', value: 'ticket_types', emoji: '🎫' } : null,
     hasFields ? { label: 'Clear All Fields', value: 'clear', emoji: '🗑️' } : null,
   ].filter(Boolean);
@@ -367,6 +373,7 @@ function buildGuideText(session) {
   if (draft.fields.length) summary.push(`${draft.fields.length} field${draft.fields.length === 1 ? '' : 's'}`);
   if (draft.buttons.length) summary.push(`${draft.buttons.length} button${draft.buttons.length === 1 ? '' : 's'}`);
   if (draft.reactions.length) summary.push(`${draft.reactions.length} reaction${draft.reactions.length === 1 ? '' : 's'}`);
+  if (draft.reactionRoles?.length) summary.push(`${draft.reactionRoles.length} reaction role${draft.reactionRoles.length === 1 ? '' : 's'}`);
   if (session.ticketTypes?.length) summary.push(`${session.ticketTypes.length} ticket type${session.ticketTypes.length === 1 ? '' : 's'}`);
   if (session.purpose === 'ticket:panel') summary.push(session.ticketTypesEnabled ? '🎫 types ON' : '🔘 button mode');
   if (draft.timestamp) summary.push('🕐 timestamp');
@@ -451,6 +458,14 @@ function buildModal(kind, session = null) {
       break;
     case 'add_reaction':
       modal.setCustomId(cid(session, 'modal:add_reaction')).setTitle('Add Reaction');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          textInput('emoji', 'Emoji (unicode 👍 or custom :name:id)', { required: true })
+        )
+      );
+      break;
+    case 'add_reaction_role':
+      modal.setCustomId(cid(session, 'modal:add_reaction_role')).setTitle('Add Reaction Role');
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           textInput('emoji', 'Emoji (unicode 👍 or custom :name:id)', { required: true })
@@ -569,6 +584,25 @@ function buildReactionManageSelect(session) {
   );
 }
 
+// Build a menu to select which reaction role (emoji → role) to remove
+function buildReactionRoleManageSelect(session) {
+  const reactionRoles = session.draft.reactionRoles || [];
+  if (!reactionRoles.length) return null;
+
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(cid(session, 'reaction_role_manage_select'))
+      .setPlaceholder('Select a reaction role to remove...')
+      .addOptions(reactionRoles.map((rr, i) => ({
+        label: `Reaction role ${i + 1}`,
+        value: String(i),
+        // Description (not an option emoji): a raw custom-emoji token like
+        // "<:name:id>" isn't a valid option emoji and would throw.
+        description: `${rr.emojiRaw} → role`.slice(0, 100),
+      })))
+  );
+}
+
 // Build a menu to select which ticket type to remove
 function buildTicketTypeManageSelect(session) {
   const types = session.ticketTypes;
@@ -602,6 +636,7 @@ module.exports = {
   buildStyleSelectMenu,
   buildButtonManageSelect,
   buildReactionManageSelect,
+  buildReactionRoleManageSelect,
   buildTicketTypeManageSelect,
   BUTTON_STYLES,
 };
