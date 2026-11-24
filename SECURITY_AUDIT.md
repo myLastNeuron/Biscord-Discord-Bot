@@ -22,8 +22,11 @@ or a guarantee of security.
 | 3 | **Medium** | Error stack traces broadcast into community log channels | Fixed |
 | 4 | **Medium** | Voice-takeover commands were not permission-gated | Fixed |
 | 5 | **Low** | `ffmpeg` self-heal downloads are not checksum-verified | Documented |
+| 6 | **High** | Transitive `undici@6.29.0` via `discord.js` → `@discordjs/rest` (TLS certificate-validation bypass and DoS) | Fixed |
 
-Dependency check after the fix: `npm audit --omit=dev` → **0 vulnerabilities**.
+Dependency check (2026-11-24): `npm audit --omit=dev` → **0 vulnerabilities**.
+CI now fails the build on high or critical production advisories with
+`npm audit --omit=dev --audit-level=high`.
 
 ---
 
@@ -81,7 +84,8 @@ release**, so bumping `@discordjs/opus` alone does not clear it.
 - Added an npm `overrides` entry pinning `tar` to `^7.5.22`, which forces the
   patched major across the tree.
 
-`npm audit --omit=dev` now reports **0 vulnerabilities**.
+`npm audit --omit=dev` now reports **0 vulnerabilities**. (This was the state at
+the original audit; a later transitive advisory is recorded in section 6.)
 
 **Note.** `tar` is only exercised at install time by `node-pre-gyp`; it is not
 on the bot's runtime request path. The override to `tar@7` should be validated
@@ -146,6 +150,45 @@ but for the `ffmpeg` binary.
 **Recommendation.** If `ffmpeg-static` ever gains a checksum manifest, verify
 it the same way `yt-dlp` is now verified. Until then, treat the network path
 for `ffmpeg` as trusted-but-unverified.
+
+---
+
+## 6. Transitive `undici` advisory (re-audit)
+
+**Severity: High (TLS certificate-validation bypass and denial of service)**
+**Discovered:** 2026-11-24
+
+A re-run of the production dependency check on 2026-11-24 found one
+high-severity advisory that appeared after the original audit: `undici@6.29.0`,
+reached through `discord.js@14.27.0 → @discordjs/rest@2.6.3`. The affected
+range is `<6.29.1` and includes:
+
+- GHSA-2m5v-pch6-74hx — TLS certificate-validation bypass via dropped TLS
+  options in `Agent` (high).
+- GHSA-xjj6-f33q-929c — unhandled error on excessive content-encodings
+  (high, denial of service).
+- GHSA-qrxm-fqhp-jwvm — TLS 1.2 certificate-changing renegotiation
+  (high, denial of service).
+- GHSA-4qv8-2p9j-2685 — unbounded memory in the `EventSource` parser
+  (moderate, denial of service).
+- GHSA-9fm3-97px-rjf6 — unbounded automatic PONG buffering in the WebSocket
+  client (moderate, denial of service).
+
+These sit on the bot's core Discord REST/WebSocket path.
+
+**Fix.** The transitive `undici` entry was updated to `6.29.1`; no other
+dependency changed. `package-lock.json` is the only source change.
+
+**Verification (2026-11-24):**
+
+```bash
+npm ci                       # exits 0
+npm ls undici                # undici@6.29.1 (deduped)
+npm audit --omit=dev         # exits 0; found 0 vulnerabilities
+```
+
+CI runs `npm audit --omit=dev --audit-level=high` as a required job, so a high
+or critical production advisory fails the build.
 
 ---
 
